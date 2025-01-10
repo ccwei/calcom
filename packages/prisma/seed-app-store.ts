@@ -208,7 +208,7 @@ async function createApp(
     });
 
     // We need to enable seeded apps as they are used in tests.
-    const data = { slug, dirName, categories, keys, enabled: true };
+    const data = { slug, dirName, categories, keys, enabled: false };
 
     if (!foundApp) {
       await prisma.app.create({
