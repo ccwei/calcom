@@ -18,27 +18,6 @@ export const seededForm = {
 };
 
 async function seedAppData() {
-  const form = await prisma.app_RoutingForms_Form.findUnique({
-    where: {
-      id: seededForm.id,
-    },
-  });
-  if (form) {
-    console.log(`Skipping Routing Form - Form Seed, "Seeded Form - Pro" already exists`);
-    return;
-  }
-
-  const proUser = await prisma.user.findFirst({
-    where: {
-      username: "pro",
-    },
-  });
-
-  if (!proUser) {
-    console.log(`Skipping Routing Form - Seeding - Pro User not found`);
-    return;
-  }
-  
   const multiSelectLegacyFieldId = "d2292635-9f12-17b1-9153-c3a854649182";
   await prisma.app_RoutingForms_Form.create({
     data: {
