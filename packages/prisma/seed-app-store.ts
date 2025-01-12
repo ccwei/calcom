@@ -209,6 +209,10 @@ async function createApp(
 
     // We need to enable seeded apps as they are used in tests.
     const data = { slug, dirName, categories, keys, enabled: false };
+    const enabledApps = ["zoom", "msteams", "office365-calendar", "google-calendar", "google-meet", "exchange"]
+    if(enabledApps.includes(slug)){
+      data.enabled = true
+    }
 
     if (!foundApp) {
       await prisma.app.create({
