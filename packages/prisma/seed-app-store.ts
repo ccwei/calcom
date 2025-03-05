@@ -209,7 +209,7 @@ async function createApp(
 
     // We need to enable seeded apps as they are used in tests.
     const data = { slug, dirName, categories, keys, enabled: false };
-    const enabledApps = ["office365-calendar", "google-calendar", "google-meet", "exchange"]
+    const enabledApps = ["google-calendar", "google-meet"]
     if(enabledApps.includes(slug)){
       data.enabled = true
     }
