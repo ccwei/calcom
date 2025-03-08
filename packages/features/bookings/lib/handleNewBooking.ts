@@ -342,6 +342,18 @@ async function handler(
     platformBookingLocation,
   } = req;
 
+  // Check if orderId query parameter exists and add it to metadata
+  const orderId = req.query.orderId as string | undefined;
+  if (orderId && req.body.metadata) {
+    if (typeof req.body.metadata === 'object') {
+      req.body.metadata.orderId = orderId;
+    } else {
+      req.body.metadata = { orderId };
+    }
+  } else if (orderId) {
+    req.body.metadata = { orderId };
+  }
+
   const eventType = await monitorCallbackAsync(getEventType, {
     eventTypeId: req.body.eventTypeId,
     eventTypeSlug: req.body.eventTypeSlug,

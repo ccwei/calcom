@@ -72,15 +72,19 @@ export const BookerWebWrapper = (props: BookerWebWrapperAtomProps) => {
   const hasSession = !!session;
   const firstNameQueryParam = searchParams?.get("firstName");
   const lastNameQueryParam = searchParams?.get("lastName");
-  const metadata = Object.keys(routerQuery)
-    .filter((key) => key.startsWith("metadata"))
-    .reduce(
-      (metadata, key) => ({
-        ...metadata,
-        [key.substring("metadata[".length, key.length - 1)]: searchParams?.get(key),
-      }),
-      {}
-    );
+  const orderId = searchParams?.get("orderId");
+  const metadata = {
+    ...Object.keys(routerQuery)
+      .filter((key) => key.startsWith("metadata"))
+      .reduce(
+        (metadata, key) => ({
+          ...metadata,
+          [key.substring("metadata[".length, key.length - 1)]: searchParams?.get(key),
+        }),
+        {}
+      ),
+    ...(orderId ? { orderId } : {}),
+  };
   const prefillFormParams = useMemo(() => {
     return {
       name:
