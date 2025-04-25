@@ -11,11 +11,14 @@ import { UserRepository } from "@calcom/lib/server/repository/user";
 const userIdSchema = z.object({ id: z.coerce.number() });
 
 export const generateMetadata = async ({ params }: { params: Params }) => {
-  const input = userIdSchema.safeParse(params);
+  const input = userIdSchema.safeParse(await params);
   if (!input.success) {
     return await _generateMetadata(
       (t) => t("editing_user"),
-      (t) => t("admin_users_edit_description")
+      (t) => t("admin_users_edit_description"),
+      undefined,
+      undefined,
+      "/settings/admin/users/edit"
     );
   }
 
@@ -23,12 +26,15 @@ export const generateMetadata = async ({ params }: { params: Params }) => {
 
   return await _generateMetadata(
     (t) => `${t("editing_user")}: ${user.username}`,
-    (t) => t("admin_users_edit_description")
+    (t) => t("admin_users_edit_description"),
+    undefined,
+    undefined,
+    `/settings/admin/users/${input.data.id}/edit`
   );
 };
 
 const Page = async ({ params }: { params: Params }) => {
-  const input = userIdSchema.safeParse(params);
+  const input = userIdSchema.safeParse(await params);
 
   if (!input.success) {
     notFound();
