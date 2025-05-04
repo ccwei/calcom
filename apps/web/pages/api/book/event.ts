@@ -28,6 +28,7 @@ async function handler(req: NextApiRequest & { userId?: number }) {
   req.body = {
     ...req.body,
     creationSource: CreationSource.WEBAPP,
+    orderId: req.query.orderId as string | undefined,
   };
 
   const booking = await handleNewBooking({

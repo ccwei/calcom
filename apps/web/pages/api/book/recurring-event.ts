@@ -42,8 +42,15 @@ async function handler(req: NextApiRequest & RequestMeta) {
   const session = await getServerSession({ req });
   /* To mimic API behavior and comply with types */
 
+  // Add orderId from query parameters to each booking data item
+  const orderId = req.query.orderId as string | undefined;
+  const bookingData = req.body.map((data: any) => ({
+    ...data,
+    orderId,
+  }));
+
   const createdBookings: BookingResponse[] = await handleNewRecurringBooking({
-    bookingData: req.body,
+    bookingData,
     userId: session?.user?.id || -1,
     platformClientId: req.platformClientId,
     platformCancelUrl: req.platformCancelUrl,
