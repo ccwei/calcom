@@ -132,13 +132,6 @@ export const useTabsNavigations = ({
         });
       }
     }
-    navigation.push({
-      name: t("webhooks"),
-      href: `/event-types/${formMethods.getValues("id")}?tabName=webhooks`,
-      icon: "webhook",
-      info: `${activeWebhooksNumber} ${t("active")}`,
-      "data-testid": "webhooks",
-    });
     const hidden = true; // hidden while in alpha trial. you can access it with tabName=ai
     if (team && hidden) {
       navigation.push({
@@ -209,26 +202,12 @@ function getNavigation({
       "data-testid": "event_limit_tab_title",
     },
     {
-      name: t("event_advanced_tab_title"),
-      href: `/event-types/${id}?tabName=advanced`,
-      icon: "sliders-vertical",
-      info: t(`event_advanced_tab_description`),
-      "data-testid": "event_advanced_tab_title",
-    },
-    {
       name: t("apps"),
       href: `/event-types/${id}?tabName=apps`,
       icon: "grid-3x3",
       //TODO: Handle proper translation with count handling
       info: `${installedAppsNumber} apps, ${enabledAppsNumber} ${t("active")}`,
       "data-testid": "apps",
-    },
-    {
-      name: t("workflows"),
-      href: `/event-types/${id}?tabName=workflows`,
-      icon: "zap",
-      info: `${enabledWorkflowsNumber} ${t("active")}`,
-      "data-testid": "workflows",
     },
   ] satisfies VerticalTabItemProps[];
 }

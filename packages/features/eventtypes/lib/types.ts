@@ -164,7 +164,7 @@ export type EventTypeAssignedUsers = RouterOutputs["viewer"]["eventTypes"]["get"
 export type EventTypeHosts = RouterOutputs["viewer"]["eventTypes"]["get"]["eventType"]["hosts"];
 export type EventTypeUpdateInput = RouterInputs["viewer"]["eventTypes"]["update"];
 export type TabMap = {
-  advanced: React.ReactNode;
+  advanced?: React.ReactNode;
   ai?: React.ReactNode;
   apps?: React.ReactNode;
   availability: React.ReactNode;
