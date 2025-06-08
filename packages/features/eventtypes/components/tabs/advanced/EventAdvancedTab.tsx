@@ -10,6 +10,7 @@ import {
   SelectedCalendarSettingsScope,
   SelectedCalendarsSettingsWebWrapperSkeleton,
 } from "@calcom/atoms/selected-calendars/wrappers/SelectedCalendarsSettingsWebWrapper";
+import getLocationsOptionsForSelect from "@calcom/features/bookings/lib/getLocationOptionsForSelect";
 import DestinationCalendarSelector from "@calcom/features/calendars/DestinationCalendarSelector";
 import useLockedFieldsManager from "@calcom/features/ee/managed-event-types/hooks/useLockedFieldsManager";
 import {
@@ -25,6 +26,7 @@ import type {
   InputClassNames,
   SettingsToggleClassNames,
 } from "@calcom/features/eventtypes/lib/types";
+import { FormBuilder } from "@calcom/features/form-builder/FormBuilder";
 import type { fieldSchema } from "@calcom/features/form-builder/schema";
 import type { EditableSchema } from "@calcom/features/form-builder/schema";
 import { BookerLayoutSelector } from "@calcom/features/settings/BookerLayoutSelector";
@@ -566,6 +568,28 @@ export const EventAdvancedTab = ({
           isUserLoading={isUserLoading}
         />
       )}
+      <div className="border-subtle space-y-6 rounded-lg border p-6">
+        <FormBuilder
+          title={t("booking_questions_title")}
+          description={t("booking_questions_description")}
+          addFieldLabel={t("add_a_booking_question")}
+          formProp="bookingFields"
+          {...shouldLockDisableProps("bookingFields")}
+          dataStore={{
+            options: {
+              locations: {
+                // FormBuilder doesn't handle plural for non-english languages. So, use english(Location) only. This is similar to 'Workflow'
+                source: { label: "Location" },
+                value: getLocationsOptionsForSelect(formMethods.getValues("locations") ?? [], t),
+              },
+            },
+          }}
+          shouldConsiderRequired={(field: BookingField) => {
+            // Location field has a default value at backend so API can send no location but we don't allow it in UI and thus we want to show it as required to user
+            return field.name === "location" ? true : field.required;
+          }}
+        />
+      </div>
       <RequiresConfirmationController
         eventType={eventType}
         seatsEnabled={seatsEnabled}
