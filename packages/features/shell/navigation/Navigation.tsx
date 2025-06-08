@@ -10,7 +10,6 @@ import {
 import { KBarTrigger } from "@calcom/features/kbar/Kbar";
 import classNames from "@calcom/ui/classNames";
 
-import { TeamInviteBadge } from "../TeamInviteBadge";
 import type { NavigationItemType } from "./NavigationItem";
 import { NavigationItem, MobileNavigationItem, MobileNavigationMoreItem } from "./NavigationItem";
 
@@ -44,13 +43,6 @@ const getNavigationItems = (orgBranding: OrganizationBranding): NavigationItemTy
         } satisfies NavigationItemType,
       ]
     : []),
-  {
-    name: "teams",
-    href: "/teams",
-    icon: "users",
-    badge: <TeamInviteBadge />,
-    moreOnMobile: true,
-  },
   {
     name: "apps",
     href: "/apps",
@@ -86,43 +78,6 @@ const getNavigationItems = (orgBranding: OrganizationBranding): NavigationItemTy
     name: MORE_SEPARATOR_NAME,
     href: "/more",
     icon: "ellipsis",
-  },
-  {
-    name: "routing",
-    href: "/routing",
-    icon: "split",
-    isCurrent: ({ pathname }) => pathname?.startsWith("/routing") ?? false,
-    moreOnMobile: true,
-  },
-  {
-    name: "workflows",
-    href: "/workflows",
-    icon: "zap",
-    moreOnMobile: true,
-  },
-  {
-    name: "insights",
-    href: "/insights",
-    icon: "chart-bar",
-    isCurrent: ({ pathname: path, item }) => path?.startsWith(item.href) ?? false,
-    moreOnMobile: true,
-    child: [
-      {
-        name: "bookings",
-        href: "/insights",
-        isCurrent: ({ pathname: path }) => path === "/insights",
-      },
-      {
-        name: "routing",
-        href: "/insights/routing",
-        isCurrent: ({ pathname: path }) => path?.startsWith("/insights/routing") ?? false,
-      },
-      {
-        name: "router_position",
-        href: "/insights/router-position",
-        isCurrent: ({ pathname: path }) => path?.startsWith("/insights/router-position") ?? false,
-      },
-    ],
   },
 ];
 
