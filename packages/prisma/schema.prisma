@@ -119,13 +119,13 @@ model EventType {
   /// @zod.custom(imports.eventTypeBookingFields)
   bookingFields                      Json?
   timeZone                           String?
-  periodType                         PeriodType             @default(UNLIMITED)
+  periodType                         PeriodType             @default(ROLLING)
   /// @zod.custom(imports.coerceToDate)
   periodStartDate                    DateTime?
   /// @zod.custom(imports.coerceToDate)
   periodEndDate                      DateTime?
-  periodDays                         Int?
-  periodCountCalendarDays            Boolean?
+  periodDays                         Int?                   @default(7)
+  periodCountCalendarDays            Boolean?               @default(true)
   lockTimeZoneToggleOnBookingPage    Boolean                @default(false)
   requiresConfirmation               Boolean                @default(false)
   requiresConfirmationWillBlockSlot  Boolean                @default(false)
@@ -140,7 +140,7 @@ model EventType {
   hideCalendarNotes                       Boolean                   @default(false)
   hideCalendarEventDetails                Boolean                   @default(false)
   /// @zod.min(0)
-  minimumBookingNotice                    Int                       @default(120)
+  minimumBookingNotice                    Int                       @default(2880)
   beforeEventBuffer                       Int                       @default(0)
   afterEventBuffer                        Int                       @default(0)
   seatsPerTimeSlot                        Int?
@@ -164,7 +164,7 @@ model EventType {
   forwardParamsSuccessRedirect            Boolean?                  @default(true)
   workflows                               WorkflowsOnEventTypes[]
   /// @zod.custom(imports.intervalLimitsType)
-  bookingLimits                           Json?
+  bookingLimits                           Json?                     @default("{\"PER_WEEK\": 4}")
   /// @zod.custom(imports.intervalLimitsType)
   durationLimits                          Json?
   isInstantEvent                          Boolean                   @default(false)

@@ -74,7 +74,7 @@ const commons = {
   locations: [{ type: DailyLocationType }],
   customInputs,
   disableGuests: true,
-  minimumBookingNotice: 120,
+  minimumBookingNotice: 2880,
   schedule: null,
   timeZone: null,
   successRedirectUrl: "",
