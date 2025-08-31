@@ -164,7 +164,7 @@ model EventType {
   forwardParamsSuccessRedirect            Boolean?                  @default(true)
   workflows                               WorkflowsOnEventTypes[]
   /// @zod.custom(imports.intervalLimitsType)
-  bookingLimits                           Json?                     @default("{\"PER_WEEK\": 4}")
+  bookingLimits                           Json?                     @default("{\"PER_WEEK\": 2}")
   /// @zod.custom(imports.intervalLimitsType)
   durationLimits                          Json?
   isInstantEvent                          Boolean                   @default(false)
