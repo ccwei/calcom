@@ -17,7 +17,7 @@ import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { useGetTheme } from "@calcom/lib/hooks/useTheme";
 import isSmsCalEmail from "@calcom/lib/isSmsCalEmail";
 import { getEveryFreqFor } from "@calcom/lib/recurringStrings";
-import { BookingStatus, SchedulingType } from "@calcom/prisma/enums";
+import { BookingStatus } from "@calcom/prisma/enums";
 import { bookingMetadataSchema } from "@calcom/prisma/zod-utils";
 import type { RouterInputs, RouterOutputs } from "@calcom/trpc/react";
 import { trpc } from "@calcom/trpc/react";
@@ -262,18 +262,6 @@ function BookingListItem(booking: BookingItemProps) {
             },
           },
         ]),
-    ...(isBookingFromRoutingForm
-      ? [
-          {
-            id: "reroute",
-            label: t("reroute"),
-            onClick: () => {
-              setRerouteDialogIsOpen(true);
-            },
-            icon: "waypoints" as const,
-          },
-        ]
-      : []),
     {
       id: "change_location",
       label: t("edit_location"),
@@ -295,17 +283,6 @@ function BookingListItem(booking: BookingItemProps) {
           },
         ]),
   ];
-
-  if (booking.eventType.schedulingType === SchedulingType.ROUND_ROBIN) {
-    editBookingActions.push({
-      id: "reassign ",
-      label: t("reassign"),
-      onClick: () => {
-        setIsOpenReassignDialog(true);
-      },
-      icon: "users" as const,
-    });
-  }
 
   if (isBookingInPast || isOngoing) {
     editBookingActions.push({
@@ -330,17 +307,6 @@ function BookingListItem(booking: BookingItemProps) {
   }
 
   let bookedActions: ActionType[] = [
-    {
-      id: "cancel",
-      label: isTabRecurring && isRecurring ? t("cancel_all_remaining") : t("cancel_event"),
-      /* When cancelling we need to let the UI and the API know if the intention is to
-               cancel all remaining bookings or just that booking instance. */
-      href: `/booking/${booking.uid}?cancel=true${
-        isTabRecurring && isRecurring ? "&allRemainingBookings=true" : ""
-      }${booking.seatsReferences.length ? `&seatReferenceUid=${getSeatReferenceUid()}` : ""}
-      `,
-      icon: "x" as const,
-    },
     {
       id: "edit_booking",
       label: t("edit"),
