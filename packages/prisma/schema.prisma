@@ -94,7 +94,7 @@ model EventType {
   /// @zod.min(1)
   length            Int
   offsetStart       Int     @default(0)
-  hidden            Boolean @default(false)
+  hidden            Boolean @default(true)
   hosts             Host[]
   users             User[]  @relation("user_eventtype")
   owner             User?   @relation("owner", fields: [userId], references: [id], onDelete: Cascade)
