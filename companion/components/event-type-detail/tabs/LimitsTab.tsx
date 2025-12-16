@@ -1,6 +1,6 @@
+import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { View, Text, TextInput, TouchableOpacity, Switch, Animated } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 
 interface FrequencyLimit {
   id: number;
@@ -330,62 +330,6 @@ export function LimitsTab(props: LimitsTabProps) {
             </>
           )}
         </Animated.View>
-      </View>
-
-      {/* 4. Max Active Bookings Per Booker Card */}
-      <View className="rounded-2xl border border-[#E5E5EA] bg-white p-5">
-        <View className="flex-row items-start justify-between">
-          <View className="mr-4 flex-1">
-            <Text className="mb-1 text-base font-medium text-[#333]">
-              Limit number of upcoming bookings per booker
-            </Text>
-            <Text className="text-sm leading-5 text-[#666]">
-              Limit the number of active bookings a booker can make for this event type.
-            </Text>
-          </View>
-          <Switch
-            value={props.maxActiveBookingsPerBooker}
-            onValueChange={props.setMaxActiveBookingsPerBooker}
-            trackColor={{ false: "#E5E5EA", true: "#34C759" }}
-            thumbColor="#FFFFFF"
-          />
-        </View>
-        {props.maxActiveBookingsPerBooker && (
-          <View className="mt-4 gap-3">
-            <View className="flex-row items-center gap-3">
-              <TextInput
-                className="w-20 rounded-lg border border-[#E5E5EA] bg-[#F8F9FA] px-3 py-3 text-center text-base text-black"
-                value={props.maxActiveBookingsValue}
-                onChangeText={(text) => {
-                  const numericValue = text.replace(/[^0-9]/g, "");
-                  const num = parseInt(numericValue) || 0;
-                  if (num >= 0) {
-                    props.setMaxActiveBookingsValue(numericValue || "1");
-                  }
-                }}
-                placeholder="1"
-                placeholderTextColor="#8E8E93"
-                keyboardType="numeric"
-              />
-              <Text className="text-base text-[#666]">bookings</Text>
-            </View>
-            <TouchableOpacity
-              className="flex-row items-center"
-              onPress={() => props.setOfferReschedule(!props.offerReschedule)}
-            >
-              <View
-                className={`mr-3 h-5 w-5 items-center justify-center rounded border ${
-                  props.offerReschedule ? "border-[#007AFF] bg-[#007AFF]" : "border-[#C7C7CC]"
-                }`}
-              >
-                {props.offerReschedule && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
-              </View>
-              <Text className="flex-1 text-sm text-[#333]">
-                Offer to reschedule the last booking to the new time slot
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </View>
 
       {/* 5. Limit Future Bookings Card */}

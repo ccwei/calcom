@@ -1,6 +1,5 @@
 "use client";
 
-// eslint-disable-next-line @calcom/eslint/deprecated-imports-next-router
 import type { TFunction } from "i18next";
 import { useMemo } from "react";
 import type { UseFormReturn } from "react-hook-form";
@@ -9,12 +8,7 @@ import { getPaymentAppData } from "@calcom/app-store/_utils/payments/getPaymentA
 import { eventTypeMetaDataSchemaWithTypedApps } from "@calcom/app-store/zod-utils";
 import useLockedFieldsManager from "@calcom/features/ee/managed-event-types/hooks/useLockedFieldsManager";
 import type { Workflow } from "@calcom/features/ee/workflows/lib/types";
-import type {
-  EventTypeSetupProps,
-  AvailabilityOption,
-  FormValues,
-  EventTypeApps,
-} from "@calcom/features/eventtypes/lib/types";
+import type { EventTypeSetupProps, FormValues, EventTypeApps } from "@calcom/features/eventtypes/lib/types";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import type { VerticalTabItemProps } from "@calcom/ui/components/navigation";
 
@@ -79,13 +73,7 @@ export const useTabsNavigations = ({
       length,
       multipleDuration,
       id: eventTypeId,
-      enabledAppsNumber,
-      installedAppsNumber,
-      enabledWorkflowsNumber,
-      availability,
-      canReadWorkflows,
     });
-
     navigation.splice(1, 0, {
       name: t("availability"),
       href: `/event-types/${eventTypeId}?tabName=availability`,
@@ -114,28 +102,6 @@ export const useTabsNavigations = ({
           isManagedEventType ? ` - ${t("number_member", { count: watchChildrenCount || 0 })}` : ""
         }`,
         "data-testid": "assignment",
-      });
-    }
-    const showInstant = !(isManagedEventType || isChildrenManagedEventType);
-    if (showInstant) {
-      if (team) {
-        navigation.push({
-          name: t("instant_tab_title"),
-          href: `/event-types/${eventType.id}?tabName=instant`,
-          icon: "phone-call",
-          info: t(`instant_event_tab_description`),
-          "data-testid": "instant_tab_title",
-        });
-      }
-    }
-    const hidden = true; // hidden while in alpha trial. you can access it with tabName=ai
-    if (team && hidden) {
-      navigation.push({
-        name: "Cal.ai",
-        href: `/event-types/${eventType.id}?tabName=ai`,
-        icon: "sparkles",
-        info: t("cal_ai_event_tab_description"), // todo `cal_ai_event_tab_description`,
-        "data-testid": "Cal.ai",
       });
     }
     return navigation;
@@ -168,23 +134,9 @@ type getNavigationProps = {
   length: number;
   id: number;
   multipleDuration?: EventTypeSetupProps["eventType"]["metadata"]["multipleDuration"];
-  enabledAppsNumber: number;
-  enabledWorkflowsNumber: number;
-  installedAppsNumber: number;
-  availability: AvailabilityOption | undefined;
-  canReadWorkflows: boolean;
 };
 
-function getNavigation({
-  length,
-  id,
-  multipleDuration,
-  t,
-  enabledAppsNumber,
-  installedAppsNumber,
-  enabledWorkflowsNumber,
-  canReadWorkflows,
-}: getNavigationProps) {
+function getNavigation({ length, id, multipleDuration, t }: getNavigationProps) {
   const duration = multipleDuration?.map((duration) => ` ${duration}`) || length;
 
   const baseNavigation: VerticalTabItemProps[] = [
@@ -202,5 +154,7 @@ function getNavigation({
       info: t(`event_limit_tab_description`),
       "data-testid": "event_limit_tab_title",
     },
-  ] satisfies VerticalTabItemProps[];
+  ];
+
+  return baseNavigation;
 }
