@@ -1,4 +1,4 @@
-import { getConnectedDestinationCalendarsAndEnsureDefaultsInDb } from "@calcom/lib/getConnectedDestinationCalendars";
+import { getConnectedDestinationCalendarsAndEnsureDefaultsInDb } from "@calcom/features/calendars/lib/getConnectedDestinationCalendars";
 import { prisma } from "@calcom/prisma";
 import type { TrpcSessionUser } from "@calcom/trpc/server/types";
 
@@ -23,8 +23,13 @@ export const connectedCalendarsHandler = async ({ ctx, input }: ConnectedCalenda
       prisma,
     });
 
+  const enrichedConnectedCalendars = connectedCalendars.map((calendar) => ({
+    ...calendar,
+    cacheUpdatedAt: null,
+  }));
+
   return {
-    connectedCalendars,
+    connectedCalendars: enrichedConnectedCalendars,
     destinationCalendar,
   };
 };

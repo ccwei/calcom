@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from "uuid";
 import dayjs from "@calcom/dayjs";
 import generateIcsString from "@calcom/emails/lib/generateIcsString";
 import { getCalEventResponses } from "@calcom/features/bookings/lib/getCalEventResponses";
-import { getBookerBaseUrl } from "@calcom/lib/getBookerUrl/server";
+import { getBookerBaseUrl } from "@calcom/features/ee/organizations/lib/getBookerUrlServer";
 import logger from "@calcom/lib/logger";
 import { safeStringify } from "@calcom/lib/safeStringify";
 import { getTranslation } from "@calcom/lib/server/i18n";
@@ -21,6 +21,7 @@ import {
   getAllRemindersToCancel,
   getAllRemindersToDelete,
   getAllUnscheduledReminders,
+  getWorkflowRecipientEmail,
 } from "../lib/getWorkflowReminders";
 import { sendOrScheduleWorkflowEmails } from "../lib/reminders/providers/emailProvider";
 import {
@@ -46,7 +47,9 @@ export async function handler(req: NextRequest) {
   if (isSendgridEnabled) {
     const remindersToDelete: { referenceId: string | null; id: number }[] = await getAllRemindersToDelete();
 
+    const reminderIds: number[] = [];
     const handlePastCancelledReminders = remindersToDelete.map(async (reminder) => {
+      reminderIds.push(reminder.id);
       try {
         if (reminder.referenceId) {
           await deleteScheduledSend(reminder.referenceId);
@@ -54,22 +57,29 @@ export async function handler(req: NextRequest) {
       } catch (err) {
         logger.error(`Error deleting scheduled send (ref: ${reminder.referenceId}): ${err}`);
       }
-
-      try {
-        await prisma.workflowReminder.update({
-          where: { id: reminder.id },
-          data: { referenceId: null },
-        });
-      } catch (err) {
-        logger.error(`Error updating reminder (id: ${reminder.id}): ${err}`);
-      }
     });
 
     await Promise.allSettled(handlePastCancelledReminders);
 
+    if (reminderIds.length > 0) {
+      try {
+        await prisma.workflowReminder.updateMany({
+          where: {
+            id: {
+              in: reminderIds,
+            },
+          },
+          data: { referenceId: null },
+        });
+      } catch (err) {
+        logger.error(`Error updating reminders: ${err}`);
+      }
+    }
+
     //cancel reminders for cancelled/rescheduled bookings that are scheduled within the next hour
     const remindersToCancel: { referenceId: string | null; id: number }[] = await getAllRemindersToCancel();
 
+    //eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cancelUpdatePromises: Promise<any>[] = [];
 
     for (const reminder of remindersToCancel) {
@@ -87,16 +97,16 @@ export async function handler(req: NextRequest) {
       cancelUpdatePromises.push(cancelPromise, updatePromise);
     }
 
-    Promise.allSettled(cancelUpdatePromises).then((results) => {
-      results.forEach((result) => {
-        if (result.status === "rejected") {
-          logger.error(`Error cancelling scheduled_sends: ${result.reason}`);
-        }
-      });
+    const results = await Promise.allSettled(cancelUpdatePromises);
+    results.forEach((result) => {
+      if (result.status === "rejected") {
+        logger.error(`Error cancelling scheduled_sends: ${result.reason}`);
+      }
     });
   }
 
   // schedule all unscheduled reminders within the next 72 hours
+  //eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sendEmailPromises: Promise<any>[] = [];
 
   const unscheduledReminders = await getAllUnscheduledReminders();
@@ -187,6 +197,13 @@ export async function handler(req: NextRequest) {
             reminder.booking.eventType?.team?.parentId ?? organizerOrganizationId ?? null
           );
 
+          const recipientEmail = getWorkflowRecipientEmail({
+            action: reminder.workflowStep.action || WorkflowActions.EMAIL_ADDRESS,
+            attendeeEmail: reminder.booking.attendees[0].email,
+            organizerEmail: reminder.booking.user?.email,
+            sendToEmail: reminder.workflowStep.sendTo,
+          });
+
           const variables: VariablesType = {
             eventName: reminder.booking.eventType?.title || "",
             organizerName: reminder.booking.user?.name || "",
@@ -199,8 +216,12 @@ export async function handler(req: NextRequest) {
             additionalNotes: reminder.booking.description,
             responses: responses,
             meetingUrl: bookingMetadataSchema.parse(reminder.booking.metadata || {})?.videoCallUrl,
-            cancelLink: `${bookerUrl}/booking/${reminder.booking.uid}?cancel=true`,
-            rescheduleLink: `${bookerUrl}/reschedule/${reminder.booking.uid}`,
+            cancelLink: `${bookerUrl}/booking/${reminder.booking.uid}?cancel=true${
+              recipientEmail ? `&cancelledBy=${encodeURIComponent(recipientEmail)}` : ""
+            }`,
+            rescheduleLink: `${bookerUrl}/reschedule/${reminder.booking.uid}${
+              recipientEmail ? `?rescheduledBy=${encodeURIComponent(recipientEmail)}` : ""
+            }`,
             ratingUrl: `${bookerUrl}/booking/${reminder.booking.uid}?rating`,
             noShowUrl: `${bookerUrl}/booking/${reminder.booking.uid}?noShow=true`,
             attendeeTimezone: reminder.booking.attendees[0].timeZone,
@@ -330,13 +351,10 @@ export async function handler(req: NextRequest) {
             attachments: reminder.workflowStep.includeCalendarEvent
               ? [
                   {
-                    content: Buffer.from(generateIcsString({ event, status: "CONFIRMED" }) || "").toString(
-                      "base64"
-                    ),
+                    content: generateIcsString({ event, status: "CONFIRMED" }) || "",
                     filename: "event.ics",
-                    type: "text/calendar; method=REQUEST",
+                    contentType: "text/calendar; charset=UTF-8; method=REQUEST",
                     disposition: "attachment",
-                    contentId: uuidv4(),
                   },
                 ]
               : undefined,
@@ -479,12 +497,11 @@ export async function handler(req: NextRequest) {
     }
   }
 
-  Promise.allSettled(sendEmailPromises).then((results) => {
-    results.forEach((result) => {
-      if (result.status === "rejected") {
-        logger.error("Email sending failed", result.reason);
-      }
-    });
+  const sendResults = await Promise.allSettled(sendEmailPromises);
+  sendResults.forEach((result) => {
+    if (result.status === "rejected") {
+      logger.error("Email sending failed", result.reason);
+    }
   });
 
   return NextResponse.json({ message: `${unscheduledReminders.length} Emails to schedule` }, { status: 200 });

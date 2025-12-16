@@ -33,7 +33,7 @@ jobs:
         with:
           filters: |
             has-files-requiring-all-checks:
-              - "!(**.md|.github/CODEOWNERS|docs/**|help/**|apps/web/public/static/locales/**/common.json)"
+              - "!(**.md|**.mdx|.github/CODEOWNERS|docs/**|help/**|apps/web/public/static/locales/**/common.json|i18n.lock)"
       - name: Get Latest Commit SHA
         id: get_sha
         run: |
@@ -46,7 +46,7 @@ jobs:
     permissions:
       pull-requests: read
     outputs:
-      run-e2e: ${{ steps.check-if-pr-has-label.outputs.run-e2e == 'true' && (github.event.action != 'labeled' || (github.event.action == 'labeled' && github.event.label.name == 'ready-for-e2e')) }}
+      run-e2e: ${{ steps.check-if-pr-has-label.outputs.run-e2e == 'true' && (github.event.action != 'labeled' || github.event.label.name == 'ready-for-e2e') }}
     steps:
       - name: Check if PR exists with ready-for-e2e label for this SHA
         id: check-if-pr-has-label
@@ -144,6 +144,13 @@ jobs:
     needs: [changes, check-label, deps]
     if: ${{ needs.check-label.outputs.run-e2e == 'true' && needs.changes.outputs.has-files-requiring-all-checks == 'true' }}
     uses: ./.github/workflows/docs-build.yml
+    secrets: inherit
+
+  build-companion:
+    name: Companion builds
+    needs: [changes, check-label, deps]
+    if: ${{ needs.check-label.outputs.run-e2e == 'true' && needs.changes.outputs.has-files-requiring-all-checks == 'true' }}
+    uses: ./.github/workflows/companion-build.yml
     secrets: inherit
 
   build:
@@ -244,11 +251,12 @@ jobs:
         build-api-v2,
         build-atoms,
         build-docs,
+        build-companion,
         e2e,
         e2e-api-v2,
         e2e-embed,
         e2e-embed-react,
-        e2e-app-store,
+        e2e-app-store
       ]
     if: always()
     runs-on: buildjet-2vcpu-ubuntu-2204

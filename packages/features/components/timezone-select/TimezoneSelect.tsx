@@ -108,6 +108,7 @@ export function TimezoneSelectComponent({
       className={`${className} ${timezoneSelectCustomClassname}`}
       aria-label="Timezone Select"
       isLoading={isPending}
+      data-testid="timezone-select"
       isDisabled={isPending}
       {...reactSelectProps}
       timezones={{
@@ -127,6 +128,24 @@ export function TimezoneSelectComponent({
       }}
       onInputChange={handleInputChange}
       {...props}
+      onChange={(selectedOption) => {
+        if (!props.onChange) return;
+
+        if (!selectedOption) {
+          props.onChange(selectedOption);
+          return;
+        }
+
+        // Fix inconsistent timezone naming formats
+        const corrections: Record<string, string> = {
+          "America/Port_Of_Spain": "America/Port_of_Spain",
+          "Africa/Porto-novo": "Africa/Porto-Novo",
+          "Africa/Dar_Es_Salaam": "Africa/Dar_es_Salaam",
+        };
+
+        const correctedValue = corrections[selectedOption.value] || selectedOption.value;
+        props.onChange({ ...selectedOption, value: correctedValue });
+      }}
       formatOptionLabel={(option) => (
         <p className="truncate">{(option as ITimezoneOption).value.replace(/_/g, " ")}</p>
       )}
@@ -142,7 +161,7 @@ export function TimezoneSelectComponent({
           classNames(
             "bg-default py-2.5 px-3 rounded-md text-default ",
             state.isFocused && "bg-subtle",
-            state.isDisabled && "bg-muted",
+            state.isDisabled && "bg-cal-muted",
             state.isSelected && "bg-emphasis text-default",
             timezoneClassNames?.option && timezoneClassNames.option(state)
           ),
@@ -179,14 +198,14 @@ export function TimezoneSelectComponent({
           ),
         menu: (state) =>
           classNames(
-            "rounded-md bg-default text-sm leading-4 text-default mt-1 border border-subtle",
+            "rounded-md bg-default text-sm leading-4 text-default mt-1 p-1 border border-subtle",
             state.selectProps.menuIsOpen && "shadow-dropdown", // Add box-shadow when menu is open
             timezoneClassNames?.menu && timezoneClassNames.menu(state)
           ),
         groupHeading: () => "leading-none text-xs uppercase text-default pl-2.5 pt-4 pb-2",
         menuList: (state) =>
           classNames(
-            "scroll-bar scrollbar-track-w-20 rounded-md",
+            "scroll-bar scrollbar-track-w-20 rounded-md flex flex-col space-y-1",
             timezoneClassNames?.menuList && timezoneClassNames.menuList(state)
           ),
         indicatorsContainer: (state) =>

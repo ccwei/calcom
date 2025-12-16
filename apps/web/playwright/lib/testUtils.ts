@@ -4,15 +4,16 @@ import { createHash } from "crypto";
 import EventEmitter from "events";
 import type { IncomingMessage, ServerResponse } from "http";
 import { createServer } from "http";
-// eslint-disable-next-line no-restricted-imports
 import type { Messages } from "mailhog";
 import { totp } from "otplib";
+import { v4 as uuid } from "uuid";
 
 import type { IntervalLimit } from "@calcom/lib/intervalLimits/intervalLimitSchema";
 import type { Prisma } from "@calcom/prisma/client";
 import { BookingStatus, SchedulingType } from "@calcom/prisma/enums";
 
 import type { createEmailsFixture } from "../fixtures/emails";
+import type { CreateUsersFixture } from "../fixtures/users";
 import type { Fixtures } from "./fixtures";
 
 type Request = IncomingMessage & { body?: unknown };
@@ -108,19 +109,30 @@ export async function selectFirstAvailableTimeSlotNextMonth(page: Page | Frame) 
   // Let current month dates fully render.
   await page.getByTestId("incrementMonth").click();
 
-  // Waiting for full month increment
-  await page.locator('[data-testid="day"][data-disabled="false"]').nth(0).click();
+  // Wait for the calendar to update after month increment before clicking
+  const availableDay = page.locator('[data-testid="day"][data-disabled="false"]').nth(0);
+  await availableDay.waitFor({ state: "visible" });
+  await availableDay.click();
 
-  await page.locator('[data-testid="time"]').nth(0).click();
+  // Wait for time slots to load after selecting a day
+  const timeSlot = page.locator('[data-testid="time"]').nth(0);
+  await timeSlot.waitFor({ state: "visible" });
+  await timeSlot.click();
 }
 
 export async function selectSecondAvailableTimeSlotNextMonth(page: Page) {
   // Let current month dates fully render.
   await page.getByTestId("incrementMonth").click();
 
-  await page.locator('[data-testid="day"][data-disabled="false"]').nth(1).click();
+  // Wait for the calendar to update after month increment before clicking
+  const availableDay = page.locator('[data-testid="day"][data-disabled="false"]').nth(1);
+  await availableDay.waitFor({ state: "visible" });
+  await availableDay.click();
 
-  await page.locator('[data-testid="time"]').nth(0).click();
+  // Wait for time slots to load after selecting a day
+  const timeSlot = page.locator('[data-testid="time"]').nth(0);
+  await timeSlot.waitFor({ state: "visible" });
+  await timeSlot.click();
 }
 
 export async function bookEventOnThisPage(page: Page) {
@@ -153,6 +165,7 @@ export const bookTimeSlot = async (
     title?: string;
     attendeePhoneNumber?: string;
     expectedStatusCode?: number;
+    isRecurringEvent?: boolean;
   }
 ) => {
   // --- fill form
@@ -164,8 +177,9 @@ export const bookTimeSlot = async (
   if (opts?.attendeePhoneNumber) {
     await page.fill('[name="attendeePhoneNumber"]', opts.attendeePhoneNumber ?? "+918888888888");
   }
-  await submitAndWaitForResponse(page, "/api/book/event", {
-    action: () => page.locator('[name="email"]').press("Enter"),
+  const url = opts?.isRecurringEvent ? "/api/book/recurring-event" : "/api/book/event";
+  await submitAndWaitForResponse(page, url, {
+    action: () => page.locator('[data-testid="confirm-book-button"]').click(),
     expectedStatusCode: opts?.expectedStatusCode,
   });
 };
@@ -177,10 +191,12 @@ export async function expectSlotNotAllowedToBook(page: Page) {
   await expect(page.locator("[data-testid=slot-not-allowed-to-book]")).toBeVisible();
 }
 
-export const createNewEventType = async (page: Page, args: { eventTitle: string }) => {
+export const createNewUserEventType = async (page: Page, args: { eventTitle: string; username?: string }) => {
   await page.click("[data-testid=new-event-type]");
-  const eventTitle = args.eventTitle;
-  await page.fill("[name=title]", eventTitle);
+  if (args.username) {
+    await page.getByRole("button", { name: args.username }).click();
+  }
+  await page.fill("[name=title]", args.eventTitle);
   await page.fill("[name=length]", "10");
   await page.click("[type=submit]");
 
@@ -207,7 +223,7 @@ export async function setupManagedEvent({
     addManagedEventToTeamMates: true,
     managedEventUnlockedFields: unlockedFields,
   });
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
   const memberUser = users.get().find((u) => u.name === teamMateName)!;
   const { team } = await adminUser.getFirstTeamMembership();
   const managedEvent = await adminUser.getFirstTeamEvent(team.id, SchedulingType.MANAGED);
@@ -216,12 +232,9 @@ export async function setupManagedEvent({
 
 export const createNewSeatedEventType = async (page: Page, args: { eventTitle: string }) => {
   const eventTitle = args.eventTitle;
-  await createNewEventType(page, { eventTitle });
+  await createNewUserEventType(page, { eventTitle });
   await page.waitForSelector('[data-testid="event-title"]');
-  await expect(page.getByTestId("vertical-tab-event_setup_tab_title")).toHaveAttribute(
-    "aria-current",
-    "page"
-  );
+  await expect(page.getByTestId("vertical-tab-basics")).toHaveAttribute("aria-current", "page");
   await page.locator('[data-testid="vertical-tab-event_advanced_tab_title"]').click();
   await page.locator('[data-testid="offer-seats-toggle"]').click();
   await page.locator('[data-testid="update-eventtype"]').click();
@@ -251,8 +264,9 @@ export async function gotoRoutingLink({
 
   await page.goto(`${previewLink}${queryString ? `?${queryString}` : ""}`);
 
-  // HACK: There seems to be some issue with the inputs to the form getting reset if we don't wait.
-  await new Promise((resolve) => setTimeout(resolve, 2000));
+  // Wait for the form to be fully loaded and stable before interacting
+  // This replaces the previous hardcoded 2s wait with a proper Playwright wait
+  await page.waitForLoadState("networkidle");
 }
 
 export async function installAppleCalendar(page: Page) {
@@ -272,15 +286,31 @@ export async function getInviteLink(page: Page) {
 export async function getEmailsReceivedByUser({
   emails,
   userEmail,
+  maxRetries = 10,
+  retryIntervalMs = 500,
 }: {
   emails?: ReturnType<typeof createEmailsFixture>;
   userEmail: string;
+  maxRetries?: number;
+  retryIntervalMs?: number;
 }): Promise<Messages | null> {
   if (!emails) return null;
+
+  // Use retry logic instead of a fixed wait to handle email delivery timing
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const matchingEmails = await emails.search(userEmail, "to");
+    if (matchingEmails?.total) {
+      return matchingEmails;
+    }
+    // Wait before retrying
+    await new Promise((resolve) => setTimeout(resolve, retryIntervalMs));
+  }
+
+  // Final attempt after all retries
   const matchingEmails = await emails.search(userEmail, "to");
   if (!matchingEmails?.total) {
     console.log(
-      `No emails received by ${userEmail}. All emails sent to:`,
+      `No emails received by ${userEmail} after ${maxRetries} retries. All emails sent to:`,
       (await emails.messages())?.items.map((e) => e.to)
     );
   }
@@ -362,7 +392,7 @@ async function createUserWithSeatedEvent(users: Fixtures["users"]) {
       },
     ],
   });
-  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
   const eventType = user.eventTypes.find((e) => e.slug === slug)!;
   return { user, eventType };
 }
@@ -416,7 +446,9 @@ export function goToUrlWithErrorHandling({ page, url }: { page: Page; url: strin
     page.on("requestfailed", onRequestFailed);
     try {
       await page.goto(url);
-    } catch (e) {}
+    } catch {
+      // do nothing
+    }
     page.off("requestfailed", onRequestFailed);
     resolve({ success: true, url: page.url() });
   });
@@ -473,7 +505,7 @@ export async function gotoBookingPage(page: Page) {
 }
 
 export async function saveEventType(page: Page) {
-  await submitAndWaitForResponse(page, "/api/trpc/eventTypes/update?batch=1", {
+  await submitAndWaitForResponse(page, "/api/trpc/eventTypesHeavy/update?batch=1", {
     action: () => page.locator("[data-testid=update-eventtype]").click(),
   });
 }
@@ -562,4 +594,51 @@ export async function bookTeamEvent({
 export async function expectPageToBeNotFound({ page, url }: { page: Page; url: string }) {
   await page.goto(`${url}`);
   await expect(page.getByTestId(`404-page`)).toBeVisible();
+}
+
+export async function setupOrgMember(users: CreateUsersFixture) {
+  const orgRequestedSlug = `example-${uuid()}`;
+
+  const orgMember = await users.create(undefined, {
+    hasTeam: true,
+    isOrg: true,
+    hasSubteam: true,
+    isOrgVerified: true,
+    isDnsSetup: true,
+    orgRequestedSlug,
+    schedulingType: SchedulingType.ROUND_ROBIN,
+  });
+
+  const { team: org } = await orgMember.getOrgMembership();
+  const { team } = await orgMember.getFirstTeamMembership();
+  const teamEvent = await orgMember.getFirstTeamEvent(team.id);
+  const userEvent = orgMember.eventTypes[0];
+
+  await orgMember.apiLogin();
+
+  return { orgMember, org, team, teamEvent, userEvent };
+}
+
+export async function cancelBookingFromBookingsList({
+  page,
+  nth,
+  reason,
+}: {
+  page: Page;
+  reason: string;
+  nth: number;
+}) {
+  await page.locator('[data-testid="booking-actions-dropdown"]').nth(nth).click();
+  const bookingUid = await page.locator('[data-testid="cancel"]').getAttribute("data-booking-uid");
+  // Click the cancel option in the dropdown
+  await page.locator('[data-testid="cancel"]').click();
+  await page.locator('[data-testid="cancel_reason"]').fill(reason);
+  await page.locator('[data-testid="confirm_cancel"]').click();
+  await expect(
+    page.locator('[data-testid="toast-success"]').filter({ hasText: "Booking Canceled" })
+  ).toBeVisible();
+
+  return {
+    bookingUid,
+  };
 }

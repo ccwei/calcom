@@ -9,7 +9,7 @@ import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
 import { showToast } from "@calcom/ui/components/toast";
-import { revalidateAttributesList } from "@calcom/web/app/(use-page-wrapper)/settings/organizations/members/actions";
+import { revalidateAttributesList } from "@calcom/web/app/(use-page-wrapper)/settings/organizations/(org-user-only)/members/actions";
 
 import { AttributeForm } from "./AttributesForm";
 
@@ -61,7 +61,7 @@ function CreateAttributeHeader(props: { isPending: boolean }) {
 
   return (
     <>
-      <div className="mb-6 mt-6 flex flex-grow items-center justify-between lg:mt-12">
+      <div className="mb-6 mt-6 flex grow items-center justify-between lg:mt-12">
         <div className="-ml-12 flex items-center gap-4">
           <Button
             variant="icon"

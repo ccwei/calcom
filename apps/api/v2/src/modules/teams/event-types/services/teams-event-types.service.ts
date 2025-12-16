@@ -11,6 +11,8 @@ import { UsersService } from "@/modules/users/services/users.service";
 import { UserWithProfile } from "@/modules/users/users.repository";
 import { Injectable, NotFoundException, Logger } from "@nestjs/common";
 
+import type { SortOrderType } from "@calcom/platform-types";
+
 import { createEventType, updateEventType } from "@calcom/platform-libraries/event-types";
 
 @Injectable()
@@ -101,8 +103,8 @@ export class TeamsEventTypesService {
     return eventType;
   }
 
-  async getTeamEventTypes(teamId: number): Promise<DatabaseTeamEventType[]> {
-    return await this.teamsEventTypesRepository.getTeamEventTypes(teamId);
+  async getTeamEventTypes(teamId: number, sortCreatedAt?: SortOrderType): Promise<DatabaseTeamEventType[]> {
+    return await this.teamsEventTypesRepository.getTeamEventTypes(teamId, sortCreatedAt);
   }
 
   async updateTeamEventType(
@@ -133,6 +135,7 @@ export class TeamsEventTypesService {
     });
 
     const eventType = await this.teamsEventTypesRepository.getEventTypeById(eventTypeId);
+    this.logger.debug("nl debug - update team event type - eventType", JSON.stringify(eventType, null, 2));
 
     if (!eventType) {
       throw new NotFoundException(`Event type with id ${eventTypeId} not found`);
@@ -155,18 +158,5 @@ export class TeamsEventTypesService {
     }
 
     return this.eventTypesRepository.deleteEventType(eventTypeId);
-  }
-
-  async deleteUserTeamEventTypesAndHosts(userId: number, teamId: number) {
-    try {
-      await this.teamsEventTypesRepository.deleteUserManagedTeamEventTypes(userId, teamId);
-      await this.teamsEventTypesRepository.removeUserFromTeamEventTypesHosts(userId, teamId);
-    } catch (err) {
-      this.logger.error("Could not remove user from all team event-types.", {
-        error: err,
-        userId,
-        teamId,
-      });
-    }
   }
 }

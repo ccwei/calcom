@@ -2,6 +2,7 @@ import { useSession } from "next-auth/react";
 import type { FormEvent } from "react";
 import { useMemo, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
+import posthog from "posthog-js";
 
 import TeamInviteFromOrg from "@calcom/ee/organizations/components/TeamInviteFromOrg";
 import { checkAdminOrOwner } from "@calcom/features/auth/lib/checkAdminOrOwner";
@@ -26,6 +27,7 @@ import { Select } from "@calcom/ui/components/form";
 import { ToggleGroup } from "@calcom/ui/components/form";
 import { Icon } from "@calcom/ui/components/icon";
 import { showToast } from "@calcom/ui/components/toast";
+import { revalidateTeamsList } from "@calcom/web/app/(use-page-wrapper)/(main-nav)/teams/actions";
 
 import type { PendingMember } from "../lib/types";
 import { GoogleWorkspaceInviteButton } from "./GoogleWorkspaceInviteButton";
@@ -89,9 +91,10 @@ export default function MemberInvitationModal(props: MemberInvitationModalProps)
   );
 
   const createInviteMutation = trpc.viewer.teams.createInvite.useMutation({
-    async onSuccess({ inviteLink }) {
+    async onSuccess() {
       trpcContext.viewer.teams.get.invalidate();
       trpcContext.viewer.teams.list.invalidate();
+      revalidateTeamsList();
     },
     onError: (error) => {
       showToast(error.message, "error");
@@ -233,7 +236,7 @@ export default function MemberInvitationModal(props: MemberInvitationModalProps)
           />
         </div>
 
-        <Form form={newMemberFormMethods} handleSubmit={(values) => props.onSubmit(values, resetFields)}>
+        <Form form={newMemberFormMethods} handleSubmit={(values) => { props.onSubmit(values, resetFields); posthog.capture("teams_modal_invite_members_button_clicked") }}>
           <div className="mb-10 mt-6 space-y-6">
             {/* Individual Invite */}
             {modalImportMode === "INDIVIDUAL" && (
@@ -268,7 +271,7 @@ export default function MemberInvitationModal(props: MemberInvitationModalProps)
             )}
             {/* Bulk Invite */}
             {modalImportMode === "BULK" && (
-              <div className="bg-muted flex flex-col rounded-md p-4">
+              <div className="bg-cal-muted flex flex-col rounded-md p-4">
                 <Controller
                   name="emailOrUsername"
                   control={newMemberFormMethods.control}
@@ -386,7 +389,9 @@ export default function MemberInvitationModal(props: MemberInvitationModalProps)
                   color="minimal"
                   className="me-2 ms-2"
                   onClick={() => {
-                    props.onSettingsOpen && props.onSettingsOpen();
+                    if (props.onSettingsOpen) {
+                      props.onSettingsOpen();
+                    }
                     newMemberFormMethods.reset();
                   }}
                   data-testid="edit-invite-link-button">
@@ -397,7 +402,7 @@ export default function MemberInvitationModal(props: MemberInvitationModalProps)
           </div>
           <DialogFooter showDivider>
             {!disableCopyLink && (
-              <div className="flex-grow">
+              <div className="grow">
                 <Button
                   type="button"
                   color="minimal"
@@ -408,6 +413,7 @@ export default function MemberInvitationModal(props: MemberInvitationModalProps)
                       // Credits to https://wolfgangrittner.dev/how-to-use-clipboard-api-in-firefox/
                       if (typeof ClipboardItem !== "undefined") {
                         const inviteLinkClipbardItem = new ClipboardItem({
+                          //eslint-disable-next-line no-async-promise-executor
                           "text/plain": new Promise(async (resolve) => {
                             // Instead of doing async work and then writing to clipboard, do async work in clipboard API itself
                             const { inviteLink } = await createInviteMutation.mutateAsync({

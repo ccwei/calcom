@@ -2,6 +2,7 @@ import { useSession } from "next-auth/react";
 import { useMemo } from "react";
 
 import { useIsEmbed } from "@calcom/embed-core/embed-iframe";
+import { useHasPaidPlan } from "@calcom/features/billing/hooks/useHasPaidPlan";
 import UnconfirmedBookingBadge from "@calcom/features/bookings/UnconfirmedBookingBadge";
 import {
   useOrgBranding,
@@ -15,7 +16,18 @@ import { NavigationItem, MobileNavigationItem, MobileNavigationMoreItem } from "
 
 export const MORE_SEPARATOR_NAME = "more";
 
-const getNavigationItems = (orgBranding: OrganizationBranding): NavigationItemType[] => [
+const preserveBookingsQueryParams = ({
+  prevPathname,
+  nextPathname,
+}: {
+  prevPathname: string | null;
+  nextPathname: string;
+}) => Boolean(prevPathname?.startsWith("/bookings/")) && nextPathname.startsWith("/bookings/");
+
+const getNavigationItems = (
+  orgBranding: OrganizationBranding,
+  hasInsightsAccess: boolean
+): NavigationItemType[] => [
   {
     name: "event_types_page_title",
     href: "/event-types",
@@ -133,8 +145,12 @@ const platformNavigationItems: NavigationItemType[] = [
 
 const useNavigationItems = (isPlatformNavigation = false) => {
   const orgBranding = useOrgBranding();
+  const { hasPaidPlan, isPending } = useHasPaidPlan();
   return useMemo(() => {
-    const items = !isPlatformNavigation ? getNavigationItems(orgBranding) : platformNavigationItems;
+    const hasInsightsAccess = !isPending && !!hasPaidPlan;
+    const items = !isPlatformNavigation
+      ? getNavigationItems(orgBranding, hasInsightsAccess)
+      : platformNavigationItems;
 
     const desktopNavigationItems = items.filter((item) => item.name !== MORE_SEPARATOR_NAME);
     const mobileNavigationBottomItems = items.filter(
@@ -145,7 +161,7 @@ const useNavigationItems = (isPlatformNavigation = false) => {
     );
 
     return { desktopNavigationItems, mobileNavigationBottomItems, mobileNavigationMoreItems };
-  }, [isPlatformNavigation, orgBranding]);
+  }, [hasPaidPlan, isPending, isPlatformNavigation, orgBranding]);
 };
 
 export const Navigation = ({ isPlatformNavigation = false }: { isPlatformNavigation?: boolean }) => {
@@ -181,7 +197,7 @@ const MobileNavigation = ({ isPlatformNavigation = false }: { isPlatformNavigati
     <>
       <nav
         className={classNames(
-          "pwa:pb-[max(0.25rem,env(safe-area-inset-bottom))] pwa:-mx-2 bg-muted border-subtle fixed bottom-0 left-0 z-30 flex w-full border-t bg-opacity-40 px-1 shadow backdrop-blur-md md:hidden",
+          "pwa:pb-[max(0.25rem,env(safe-area-inset-bottom))] pwa:-mx-2 bg-cal-muted/40 border-subtle fixed bottom-0 left-0 z-30 flex w-full border-t px-1 shadow backdrop-blur-md md:hidden",
           isEmbed && "hidden"
         )}>
         {mobileNavigationBottomItems.map((item) => (

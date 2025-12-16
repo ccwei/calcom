@@ -30,6 +30,10 @@ const querySchema = z.object({
 const decryptedSchema = z.object({
   bookingUid: z.string(),
   userId: z.number().int(),
+  platformClientId: z.string().optional(),
+  platformRescheduleUrl: z.string().optional(),
+  platformCancelUrl: z.string().optional(),
+  platformBookingUrl: z.string().optional(),
 });
 
 // Move the sessionGetter function outside the GET function
@@ -55,7 +59,6 @@ const createSessionGetter = (userId: number) => async () => {
 };
 
 async function handler(request: NextRequest) {
-  const url = new URL(request.url);
   const searchParams = request.nextUrl.searchParams;
 
   const { action, token, reason } = querySchema.parse(Object.fromEntries(searchParams.entries()));
@@ -64,7 +67,14 @@ async function handler(request: NextRequest) {
     symmetricDecrypt(decodeURIComponent(token), process.env.CALENDSO_ENCRYPTION_KEY || "")
   );
 
-  const { bookingUid, userId } = decryptedSchema.parse(decryptedData);
+  const {
+    bookingUid,
+    userId,
+    platformClientId,
+    platformRescheduleUrl,
+    platformCancelUrl,
+    platformBookingUrl,
+  } = decryptedSchema.parse(decryptedData);
 
   const booking = await prisma.booking.findUniqueOrThrow({
     where: { uid: bookingUid },
@@ -97,14 +107,22 @@ async function handler(request: NextRequest) {
       recurringEventId: booking.recurringEventId || undefined,
       confirmed: action === DirectAction.ACCEPT,
       reason,
+      platformClientParams: platformClientId
+        ? {
+            platformClientId,
+            platformRescheduleUrl,
+            platformCancelUrl,
+            platformBookingUrl,
+          }
+        : undefined,
     });
   } catch (e) {
     let message = "Error confirming booking";
     if (e instanceof TRPCError) message = (e as TRPCError).message;
-    return NextResponse.redirect(`${url.origin}/booking/${bookingUid}?error=${encodeURIComponent(message)}`);
+    return NextResponse.redirect(new URL(`/booking/${bookingUid}?error=${encodeURIComponent(message)}`, request.url));
   }
 
-  return NextResponse.redirect(`${url.origin}/booking/${bookingUid}`);
+  return NextResponse.redirect(new URL(`/booking/${bookingUid}`, request.url));
 }
 
 export const GET = defaultResponderForAppDir(handler);
