@@ -8,8 +8,7 @@ import handleCancelBooking from "@calcom/features/bookings/lib/handleCancelBooki
 import { checkRateLimitAndThrowError } from "@calcom/lib/checkRateLimitAndThrowError";
 import getIP from "@calcom/lib/getIP";
 import { piiHasher } from "@calcom/lib/server/PiiHasher";
-import { bookingCancelWithCsrfSchema } from "@calcom/prisma/zod-utils";
-import { validateCsrfToken } from "@calcom/web/lib/validateCsrfToken";
+import { bookingCancelInput } from "@calcom/prisma/zod-utils";
 
 import { buildLegacyRequest } from "@lib/buildLegacyCtx";
 
@@ -20,12 +19,7 @@ async function handler(req: NextRequest) {
   } catch {
     return NextResponse.json({ success: false, message: "Invalid JSON" }, { status: 400 });
   }
-  const bookingData = bookingCancelWithCsrfSchema.parse(appDirRequestBody);
-
-  const csrfError = await validateCsrfToken(bookingData.csrfToken);
-  if (csrfError) {
-    return csrfError;
-  }
+  const bookingData = bookingCancelInput.parse(appDirRequestBody);
 
   const session = await getServerSession({ req: buildLegacyRequest(await headers(), await cookies()) });
 
