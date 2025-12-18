@@ -77,6 +77,7 @@ jobs:
         uses: "google-github-actions/auth@f112390a2df9932162083945e46d439060d66ec2" # google-github-actions/auth@v2
         with:
           workload_identity_provider: "${{ env.WORKLOAD_IDENTITY_PROVIDER }}"
+          service_account: gha-deployer@glowing-program-446110-a1.iam.gserviceaccount.com
           project_id: glowing-program-446110-a1
 
       - name: "Use gcloud CLI"
