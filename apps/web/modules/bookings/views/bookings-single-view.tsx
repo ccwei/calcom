@@ -21,7 +21,7 @@ import {
   useIsBackgroundTransparent,
   useIsEmbed,
 } from "@calcom/embed-core/embed-iframe";
-import { Price } from "@calcom/features/bookings/components/event-meta/Price";
+import { Price } from "@calcom/web/modules/bookings/components/event-meta/Price";
 import { getCalendarLinks, CalendarLinkType } from "@calcom/features/bookings/lib/getCalendarLinks";
 import { RATING_OPTIONS, validateRating } from "@calcom/features/bookings/lib/rating";
 import { isWithinMinimumRescheduleNotice as isWithinMinimumRescheduleNoticeUtil } from "@calcom/features/bookings/lib/reschedule/isWithinMinimumRescheduleNotice";
@@ -79,6 +79,7 @@ const querySchema = z.object({
   seatReferenceUid: z.string().optional(),
   rating: z.string().optional(),
   noShow: stringToBoolean,
+  redirect_status: z.string().optional(),
 });
 
 const useBrandColors = ({
@@ -120,6 +121,7 @@ export default function Success(props: PageProps) {
     seatReferenceUid,
     noShow,
     rating,
+    redirect_status,
   } = querySchema.parse(routerQuery);
 
   const attendeeTimeZone = bookingInfo?.attendees.find((attendee) => attendee.email === email)?.timeZone;
@@ -148,7 +150,10 @@ export default function Success(props: PageProps) {
   const status = bookingInfo?.status;
   const reschedule = bookingInfo.status === BookingStatus.ACCEPTED;
   const cancellationReason = bookingInfo.cancellationReason || bookingInfo.rejectionReason;
-  const isAwaitingPayment = props.paymentStatus && !props.paymentStatus.success;
+
+  const isPaymentSucceededFromRedirect = redirect_status === "succeeded";
+  const isAwaitingPayment =
+    props.paymentStatus && !props.paymentStatus.success && !isPaymentSucceededFromRedirect;
 
   const attendees = bookingInfo?.attendees;
 
@@ -308,6 +313,7 @@ export default function Success(props: PageProps) {
       if (props.profile.name !== null) {
         return t(`user_needs_to_confirm_or_reject_booking${titleSuffix}`, {
           user: props.profile.name,
+          interpolation: { escapeValue: false },
         });
       }
       return t(`needs_to_be_confirmed_or_rejected${titleSuffix}`);
@@ -637,21 +643,30 @@ export default function Success(props: PageProps) {
                                   )}
                                 </div>
                               )}
-                              {bookingInfo?.attendees.map((attendee) => (
-                                <div key={attendee.name + attendee.email} className="mb-3 last:mb-0">
-                                  {attendee.name && (
-                                    <p data-testid={`attendee-name-${attendee.name}`}>{attendee.name}</p>
-                                  )}
-                                  {attendee.phoneNumber && (
-                                    <p data-testid={`attendee-phone-${attendee.phoneNumber}`}>
-                                      {attendee.phoneNumber}
-                                    </p>
-                                  )}
-                                  {!isSmsCalEmail(attendee.email) && (
-                                    <p data-testid={`attendee-email-${attendee.email}`}>{attendee.email}</p>
-                                  )}
-                                </div>
-                              ))}
+                              {bookingInfo?.attendees.map((attendee) => {
+                                // Check if attendee is a team member/host (for round robin scenarios)
+                                const isTeamMemberOrHost =
+                                  eventType.hosts?.some((host) => host.user.email === attendee.email) ||
+                                  eventType.users?.some((user) => user.email === attendee.email);
+                                const shouldHideEmail =
+                                  bookingInfo.eventType?.hideOrganizerEmail && isTeamMemberOrHost;
+
+                                return (
+                                  <div key={attendee.name + attendee.email} className="mb-3 last:mb-0">
+                                    {attendee.name && (
+                                      <p data-testid={`attendee-name-${attendee.name}`}>{attendee.name}</p>
+                                    )}
+                                    {attendee.phoneNumber && (
+                                      <p data-testid={`attendee-phone-${attendee.phoneNumber}`}>
+                                        {attendee.phoneNumber}
+                                      </p>
+                                    )}
+                                    {!isSmsCalEmail(attendee.email) && !shouldHideEmail && (
+                                      <p data-testid={`attendee-email-${attendee.email}`}>{attendee.email}</p>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </>
                         )}
@@ -770,6 +785,7 @@ export default function Success(props: PageProps) {
 
                           return (
                             <Fragment key={field.name}>
+                              {/* biome-ignore lint/security/noDangerouslySetInnerHtml: Content is sanitized via markdownToSafeHTML */}
                               <div
                                 className="text-emphasis mt-4 font-medium"
                                 dangerouslySetInnerHTML={{
@@ -800,15 +816,14 @@ export default function Success(props: PageProps) {
                           </span>
                           {/* Login button but redirect to here */}
                           <span className="text-default inline">
-                            <span className="underline" data-testid="reschedule-link">
-                              <Link
-                                href={`/auth/login?callbackUrl=${encodeURIComponent(
-                                  `/booking/${bookingInfo?.uid}`
-                                )}`}
-                                legacyBehavior>
-                                {t("login")}
-                              </Link>
-                            </span>
+                            <Link
+                              href={`/auth/login?callbackUrl=${encodeURIComponent(
+                                `/booking/${bookingInfo?.uid}`
+                              )}`}
+                              className="underline"
+                              data-testid="reschedule-link">
+                              {t("login")}
+                            </Link>
                           </span>
                         </div>
                       </>
@@ -838,17 +853,16 @@ export default function Success(props: PageProps) {
                                     canReschedule &&
                                     !isRescheduleDisabled && (
                                       <span className="text-default inline">
-                                        <span className="underline" data-testid="reschedule-link">
-                                          <Link
-                                            href={`/reschedule/${seatReferenceUid || bookingInfo?.uid}${
-                                              currentUserEmail
-                                                ? `?rescheduledBy=${encodeURIComponent(currentUserEmail)}`
-                                                : ""
-                                            }`}
-                                            legacyBehavior>
-                                            {t("reschedule")}
-                                          </Link>
-                                        </span>
+                                        <Link
+                                          href={`/reschedule/${seatReferenceUid || bookingInfo?.uid}${
+                                            currentUserEmail
+                                              ? `?rescheduledBy=${encodeURIComponent(currentUserEmail)}`
+                                              : ""
+                                          }`}
+                                          className="underline"
+                                          data-testid="reschedule-link">
+                                          {t("reschedule")}
+                                        </Link>
                                       </span>
                                     )}
                                 </>
