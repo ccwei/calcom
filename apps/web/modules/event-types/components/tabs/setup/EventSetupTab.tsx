@@ -326,33 +326,6 @@ export const EventSetupTab = (
               max={MAX_EVENT_DURATION_MINUTES}
             />
           )}
-          {!lengthLockedProps.disabled && (
-            <div className="mt-4! [&_label]:my-1 [&_label]:font-normal">
-              <SettingsToggle
-                title={t("allow_multiple_durations")}
-                checked={multipleDuration !== undefined}
-                disabled={seatsEnabled}
-                tooltip={seatsEnabled ? t("seat_options_doesnt_multiple_durations") : undefined}
-                labelClassName={customClassNames?.durationSection?.selectDurationToggle?.label}
-                descriptionClassName={customClassNames?.durationSection?.selectDurationToggle?.description}
-                switchContainerClassName={customClassNames?.durationSection?.selectDurationToggle?.container}
-                childrenClassName={customClassNames?.durationSection?.selectDurationToggle?.children}
-                onCheckedChange={() => {
-                  if (multipleDuration !== undefined) {
-                    setMultipleDuration(undefined);
-                    setSelectedMultipleDuration([]);
-                    setDefaultDuration(null);
-                    formMethods.setValue("metadata.multipleDuration", undefined, { shouldDirty: true });
-                    formMethods.setValue("length", eventType.length, { shouldDirty: true });
-                  } else {
-                    setMultipleDuration([]);
-                    formMethods.setValue("metadata.multipleDuration", [], { shouldDirty: true });
-                    formMethods.setValue("length", 0, { shouldDirty: true });
-                  }
-                }}
-              />
-            </div>
-          )}
         </div>
         <Tooltip
           content={t("locations_disabled_per_host_enabled")}

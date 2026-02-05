@@ -237,27 +237,27 @@ async function handler(input: CancelBookingInput, dependencies?: Dependencies) {
   // }
 
   // If the booking is a seated event and there is no seatReferenceUid we should validate that logged in user is host
-  if (bookingToDelete.eventType?.seatsPerTimeSlot && !seatReferenceUid) {
-    const userIsHost = bookingToDelete.eventType.hosts.find((host) => {
-      if (host.user.id === userId) return true;
-    });
+  // if (bookingToDelete.eventType?.seatsPerTimeSlot && !seatReferenceUid) {
+  //   const userIsHost = bookingToDelete.eventType.hosts.find((host) => {
+  //     if (host.user.id === userId) return true;
+  //   });
 
-    const userIsOwnerOfEventType = bookingToDelete.eventType.owner?.id === userId;
+  //   const userIsOwnerOfEventType = bookingToDelete.eventType.owner?.id === userId;
 
-    const userIsOrgAdminOfBookingUser =
-      userId &&
-      (await PrismaOrgMembershipRepository.isLoggedInUserOrgAdminOfBookingHost(
-        userId,
-        bookingToDelete.userId
-      ));
+  //   const userIsOrgAdminOfBookingUser =
+  //     userId &&
+  //     (await PrismaOrgMembershipRepository.isLoggedInUserOrgAdminOfBookingHost(
+  //       userId,
+  //       bookingToDelete.userId
+  //     ));
 
-    if (!userIsHost && !userIsOwnerOfEventType && !userIsOrgAdminOfBookingUser) {
-      throw new HttpError({
-        statusCode: 401,
-        message: "User not a host of this event or an admin of the booking user",
-      });
-    }
-  }
+  //   if (!userIsHost && !userIsOwnerOfEventType && !userIsOrgAdminOfBookingUser) {
+  //     throw new HttpError({
+  //       statusCode: 401,
+  //       message: "User not a host of this event or an admin of the booking user",
+  //     });
+  //   }
+  // }
 
   // get webhooks
   const eventTrigger: WebhookTriggerEvents = "BOOKING_CANCELLED";
