@@ -34,7 +34,338 @@ export type EventAdvancedBaseProps = Pick<EventTypeSetupProps, "eventType"> & {
   customClassNames?: EventAdvancedTabCustomClassNames;
 };
 
-export type EventAdvancedTabProps = EventAdvancedBaseProps;
+export type EventAdvancedTabProps = EventAdvancedBaseProps & {
+  calendarsQuery: {
+    data?: RouterOutputs["viewer"]["calendars"]["connectedCalendars"];
+    isPending: boolean;
+    error: unknown;
+  };
+  showBookerLayoutSelector: boolean;
+  localeOptions?: { value: string; label: string }[];
+  verifiedEmails?: string[];
+};
+
+type CalendarSettingsProps = {
+  eventType: EventAdvancedTabProps["eventType"];
+  customClassNames?: EventAdvancedTabCustomClassNames;
+  calendarsQuery: NonNullable<EventAdvancedTabProps["calendarsQuery"]>;
+  eventNameLocked: {
+    disabled: boolean;
+    LockedIcon: false | JSX.Element;
+  };
+  eventNamePlaceholder: string;
+  setShowEventNameTip: Dispatch<SetStateAction<boolean>>;
+  showToast: EventAdvancedTabProps["showToast"];
+  verifiedSecondaryEmails: { label: string; value: number }[];
+  userEmail: string;
+  isTeamEventType: boolean;
+  isChildrenManagedEventType: boolean;
+};
+
+const destinationCalendarComponents = {
+  DestinationCalendarSettings({
+    showConnectedCalendarSettings,
+    customClassNames,
+    calendarsQuery,
+    eventNameLocked,
+    eventNamePlaceholder,
+    setShowEventNameTip,
+    verifiedSecondaryEmails,
+    userEmail,
+    isTeamEventType,
+    showToast,
+  }: Omit<CalendarSettingsProps, "eventType" | "isChildrenManagedEventType"> & {
+    showConnectedCalendarSettings: boolean;
+  }) {
+    const { t } = useLocale();
+    const formMethods = useFormContext<FormValues>();
+    const [
+      useEventTypeDestinationCalendarEmail,
+      setUseEventTypeDestinationCalendarEmail,
+    ] = useState(formMethods.getValues("useEventTypeDestinationCalendarEmail"));
+    const selectedSecondaryEmailId =
+      formMethods.getValues("secondaryEmailId") || -1;
+    return (
+      <div className="border-subtle stack-y-6 rounded-lg border p-6">
+        <div className="stack-y-4 lg:stack-y-0 flex flex-col lg:flex-row lg:space-x-4">
+          {showConnectedCalendarSettings && (
+            <div
+              className={classNames(
+                "flex w-full flex-col",
+                customClassNames?.destinationCalendar?.container
+              )}
+            >
+              <Label
+                className={classNames(
+                  "text-emphasis mb-0 font-medium",
+                  customClassNames?.destinationCalendar?.label
+                )}
+              >
+                {t("add_to_calendar")}
+              </Label>
+              <Controller
+                name="destinationCalendar"
+                render={({ field: { onChange, value } }) => (
+                  <DestinationCalendarSelector
+                    value={value ? value.externalId : undefined}
+                    onChange={onChange}
+                    hidePlaceholder
+                    hideAdvancedText
+                    calendarsQueryData={calendarsQuery.data}
+                    customClassNames={customClassNames?.destinationCalendar}
+                  />
+                )}
+              />
+              <p className="text-subtle text-sm">{t("select_which_cal")}</p>
+            </div>
+          )}
+          <div
+            className={classNames(
+              "w-full",
+              customClassNames?.eventName?.container
+            )}
+          >
+            <TextField
+              label={t("event_name_in_calendar")}
+              labelClassName={customClassNames?.eventName?.label}
+              addOnClassname={customClassNames?.eventName?.addOn}
+              className={customClassNames?.eventName?.input}
+              type="text"
+              {...eventNameLocked}
+              placeholder={eventNamePlaceholder}
+              {...formMethods.register("eventName")}
+              addOnSuffix={
+                <Button
+                  color="minimal"
+                  size="sm"
+                  aria-label="edit custom name"
+                  className="hover:stroke-3 hover:text-emphasis py-0! -mr-1.5 min-w-fit px-1.5 hover:bg-transparent"
+                  onClick={() => setShowEventNameTip((old) => !old)}
+                >
+                  <Icon name="pencil" className="h-4 w-4" />
+                </Button>
+              }
+            />
+          </div>
+        </div>
+        <div className="stack-y-2">
+          {showConnectedCalendarSettings && (
+            <div
+              className={classNames(
+                "w-full",
+                customClassNames?.addToCalendarEmailOrganizer?.container
+              )}
+            >
+              <Switch
+                tooltip={t("if_enabled_email_address_as_organizer")}
+                label={
+                  <>
+                    {t("display_add_to_calendar_organizer")}
+                    <Icon
+                      name="info"
+                      className="text-default hover:text-attention hover:bg-attention ms-1 inline h-4 w-4 rounded-md"
+                    />
+                  </>
+                }
+                checked={useEventTypeDestinationCalendarEmail}
+                onCheckedChange={(val) => {
+                  setUseEventTypeDestinationCalendarEmail(val);
+                  formMethods.setValue(
+                    "useEventTypeDestinationCalendarEmail",
+                    val,
+                    {
+                      shouldDirty: true,
+                    }
+                  );
+                  if (val) {
+                    showToast(t("reconnect_calendar_to_use"), "warning");
+                  }
+                }}
+              />
+            </div>
+          )}
+          {!showConnectedCalendarSettings && !isTeamEventType && (
+            <p className="text-emphasis mb-2 block text-sm font-medium leading-none">
+              {t("add_to_calendar")}
+            </p>
+          )}
+          {!useEventTypeDestinationCalendarEmail &&
+            verifiedSecondaryEmails.length > 0 &&
+            !isTeamEventType && (
+              <div
+                className={classNames(
+                  "flex w-full flex-col",
+                  showConnectedCalendarSettings && "pl-11"
+                )}
+              >
+                <SelectField
+                  placeholder={
+                    selectedSecondaryEmailId === -1 && (
+                      <span className="text-default min-w-0 overflow-hidden truncate whitespace-nowrap">
+                        <Badge variant="blue">{t("default")}</Badge> {userEmail}
+                      </span>
+                    )
+                  }
+                  className={
+                    customClassNames?.addToCalendarEmailOrganizer?.emailSelect
+                      ?.select
+                  }
+                  containerClassName={
+                    customClassNames?.addToCalendarEmailOrganizer?.emailSelect
+                      ?.container
+                  }
+                  onChange={(option) =>
+                    formMethods.setValue("secondaryEmailId", option?.value, {
+                      shouldDirty: true,
+                    })
+                  }
+                  value={verifiedSecondaryEmails.find(
+                    (secondaryEmail) =>
+                      selectedSecondaryEmailId !== -1 &&
+                      secondaryEmail.value === selectedSecondaryEmailId
+                  )}
+                  options={verifiedSecondaryEmails}
+                />
+                <p
+                  className={classNames(
+                    "text-subtle mt-2 text-sm",
+                    customClassNames?.addToCalendarEmailOrganizer?.emailSelect
+                      ?.displayEmailLabel
+                  )}
+                >
+                  {t("display_email_as_organizer")}
+                </p>
+              </div>
+            )}
+        </div>
+      </div>
+    );
+  },
+  DestinationCalendarSettingsSkeleton() {
+    return (
+      <div className="border-subtle stack-y-6 rounded-lg border p-6">
+        <div className="stack-y-4 lg:stack-y-0 flex flex-col lg:flex-row lg:space-x-4">
+          <div className="flex w-full flex-col">
+            <div className="bg-emphasis h-4 w-32 animate-pulse rounded-md" />
+            <div className="bg-emphasis mt-2 h-10 w-full animate-pulse rounded-md" />
+            <div className="bg-emphasis mt-2 h-4 w-48 animate-pulse rounded-md" />
+          </div>
+          <div className="w-full">
+            <div className="bg-emphasis h-4 w-32 animate-pulse rounded-md" />
+            <div className="bg-emphasis mt-2 h-10 w-full animate-pulse rounded-md" />
+          </div>
+        </div>
+        <div className="stack-y-2">
+          <div className="bg-emphasis h-6 w-64 animate-pulse rounded-md" />
+          <div className="bg-emphasis h-10 w-full animate-pulse rounded-md" />
+          <div className="bg-emphasis h-4 w-48 animate-pulse rounded-md" />
+        </div>
+      </div>
+    );
+  },
+};
+
+const calendarComponents = {
+  CalendarSettingsSkeleton() {
+    return (
+      <div>
+        <destinationCalendarComponents.DestinationCalendarSettingsSkeleton />
+        <SelectedCalendarsSettingsWebWrapperSkeleton />
+      </div>
+    );
+  },
+
+  CalendarSettings({
+    eventType,
+    calendarsQuery,
+    verifiedSecondaryEmails,
+    userEmail,
+    isTeamEventType,
+    isChildrenManagedEventType,
+    customClassNames,
+    eventNameLocked,
+    eventNamePlaceholder,
+    setShowEventNameTip,
+    showToast,
+  }: CalendarSettingsProps) {
+    const formMethods = useFormContext<FormValues>();
+    /**
+     * Only display calendar selector if user has connected calendars AND if it's not
+     * a team event. Since we don't have logic to handle each attendee calendar (for now).
+     */
+
+    const isPlatform = useIsPlatform();
+    const isConnectedCalendarSettingsApplicable =
+      !isTeamEventType || isChildrenManagedEventType;
+    const isConnectedCalendarSettingsLoading = calendarsQuery.isPending;
+    const showConnectedCalendarSettings =
+      !!calendarsQuery.data?.connectedCalendars.length &&
+      isConnectedCalendarSettingsApplicable;
+
+    const selectedCalendarSettingsScope = formMethods.getValues(
+      "useEventLevelSelectedCalendars"
+    )
+      ? SelectedCalendarSettingsScope.EventType
+      : SelectedCalendarSettingsScope.User;
+
+    const destinationCalendar = calendarsQuery.data?.destinationCalendar;
+    if (
+      isConnectedCalendarSettingsLoading &&
+      isConnectedCalendarSettingsApplicable
+    ) {
+      return <calendarComponents.CalendarSettingsSkeleton />;
+    }
+
+    return (
+      <div>
+        <destinationCalendarComponents.DestinationCalendarSettings
+          verifiedSecondaryEmails={verifiedSecondaryEmails}
+          userEmail={userEmail}
+          isTeamEventType={isTeamEventType}
+          calendarsQuery={calendarsQuery}
+          eventNameLocked={eventNameLocked}
+          eventNamePlaceholder={eventNamePlaceholder}
+          setShowEventNameTip={setShowEventNameTip}
+          showToast={showToast}
+          showConnectedCalendarSettings={showConnectedCalendarSettings}
+          customClassNames={customClassNames}
+        />
+        <div>
+          {isConnectedCalendarSettingsApplicable
+            ? showConnectedCalendarSettings && (
+                <div className="mt-4">
+                  <Suspense
+                    fallback={<SelectedCalendarsSettingsWebWrapperSkeleton />}
+                  >
+                    {!isPlatform && (
+                      <SelectedCalendarsSettingsWebWrapper
+                        eventTypeId={eventType.id}
+                        disabledScope={SelectedCalendarSettingsScope.User}
+                        disableConnectionModification={true}
+                        scope={selectedCalendarSettingsScope}
+                        destinationCalendarId={destinationCalendar?.externalId}
+                        setScope={(scope) => {
+                          const chosenScopeIsEventLevel =
+                            scope === SelectedCalendarSettingsScope.EventType;
+                          formMethods.setValue(
+                            "useEventLevelSelectedCalendars",
+                            chosenScopeIsEventLevel,
+                            {
+                              shouldDirty: true,
+                            }
+                          );
+                        }}
+                      />
+                    )}
+                  </Suspense>
+                </div>
+              )
+            : null}
+        </div>
+      </div>
+    );
+  },
+};
 
 export const EventAdvancedTab = ({
   eventType,
@@ -207,6 +538,493 @@ export const EventAdvancedTab = ({
           </>
         )}
       />
+      <Controller
+        name="hideOrganizerEmail"
+        render={({ field: { value, onChange } }) => (
+          <SettingsToggle
+            labelClassName={classNames(
+              "text-sm",
+              customClassNames?.hideOrganizerEmail?.label
+            )}
+            toggleSwitchAtTheEnd={true}
+            switchContainerClassName={classNames(
+              "border-subtle rounded-lg border py-6 px-4 sm:px-6",
+              customClassNames?.hideOrganizerEmail?.container
+            )}
+            title={t("hide_organizer_email")}
+            {...hideOrganizerEmailLocked}
+            description={
+              <LearnMoreLink
+                t={t}
+                i18nKey="hide_organizer_email_description"
+                href="https://cal.com/help/event-types/hideorganizersemail#hide-organizers-email"
+              />
+            }
+            descriptionClassName={
+              customClassNames?.hideOrganizerEmail?.description
+            }
+            checked={value}
+            onCheckedChange={(e) => onChange(e)}
+            data-testid="hide-organizer-email"
+          />
+        )}
+      />
+      <Controller
+        name="lockTimeZoneToggleOnBookingPage"
+        render={({ field: { value, onChange } }) => {
+          // Calculate if we should show the selector based on current form state & handle backward compatibility
+          const currentLockedTimeZone = formMethods.getValues("lockedTimeZone");
+          const showSelector =
+            value &&
+            (!(
+              eventType.lockTimeZoneToggleOnBookingPage &&
+              !eventType.lockedTimeZone
+            ) ||
+              !!currentLockedTimeZone);
+
+          return (
+            <SettingsToggle
+              labelClassName={classNames(
+                "text-sm",
+                customClassNames?.timezoneLock?.label
+              )}
+              descriptionClassName={customClassNames?.timezoneLock?.description}
+              toggleSwitchAtTheEnd={true}
+              switchContainerClassName={classNames(
+                "border-subtle rounded-lg border py-6 px-4 sm:px-6",
+                customClassNames?.timezoneLock?.container,
+                showSelector && "rounded-b-none"
+              )}
+              title={t("lock_timezone_toggle_on_booking_page")}
+              {...lockTimeZoneToggleOnBookingPageLocked}
+              description={
+                <LearnMoreLink
+                  t={t}
+                  i18nKey="description_lock_timezone_toggle_on_booking_page"
+                  href="https://cal.com/help/event-types/timezone-lock"
+                />
+              }
+              checked={value}
+              onCheckedChange={(e) => {
+                onChange(e);
+                const lockedTimeZone = e
+                  ? eventType.lockedTimeZone ?? "Europe/London"
+                  : null;
+                formMethods.setValue("lockedTimeZone", lockedTimeZone, {
+                  shouldDirty: true,
+                });
+              }}
+              data-testid="lock-timezone-toggle"
+              childrenClassName="lg:ml-0"
+            >
+              {showSelector && (
+                <div className="border-subtle flex flex-col gap-6 rounded-b-lg border border-t-0 p-6">
+                  <div>
+                    <Controller
+                      name="lockedTimeZone"
+                      control={formMethods.control}
+                      render={({ field: { value } }) => (
+                        <>
+                          <Label className="text-default mb-2 block text-sm font-medium">
+                            <>{t("timezone")}</>
+                          </Label>
+                          <TimezoneSelect
+                            id="lockedTimeZone"
+                            value={value ?? "Europe/London"}
+                            onChange={(event) => {
+                              if (event)
+                                formMethods.setValue(
+                                  "lockedTimeZone",
+                                  event.value,
+                                  { shouldDirty: true }
+                                );
+                            }}
+                          />
+                        </>
+                      )}
+                    />
+                  </div>
+                </div>
+              )}
+            </SettingsToggle>
+          );
+        }}
+      />
+      <Controller
+        name="allowReschedulingPastBookings"
+        render={({ field: { value, onChange } }) => (
+          <SettingsToggle
+            labelClassName={classNames("text-sm")}
+            toggleSwitchAtTheEnd={true}
+            switchContainerClassName={classNames(
+              "border-subtle rounded-lg border py-6 px-4 sm:px-6"
+            )}
+            title={t("allow_rescheduling_past_events")}
+            {...reschedulingPastBookingsLocked}
+            description={
+              <LearnMoreLink
+                t={t}
+                i18nKey="allow_rescheduling_past_events_description"
+                href="https://cal.com/help/event-types/allow-rescheduling"
+              />
+            }
+            checked={value}
+            onCheckedChange={(e) => onChange(e)}
+          />
+        )}
+      />
+
+      <Controller
+        name="allowReschedulingCancelledBookings"
+        render={({ field: { onChange } }) => (
+          <SettingsToggle
+            labelClassName="text-sm"
+            toggleSwitchAtTheEnd={true}
+            switchContainerClassName="border-subtle rounded-lg border py-6 px-4 sm:px-6"
+            title={t("allow_rescheduling_cancelled_bookings")}
+            data-testid="allow-rescheduling-cancelled-bookings-toggle"
+            {...allowReschedulingCancelledBookingsLocked}
+            description={t("description_allow_rescheduling_cancelled_bookings")}
+            checked={allowReschedulingCancelledBookings}
+            onCheckedChange={(val) => {
+              setallowReschedulingCancelledBookings(val);
+              onChange(val);
+            }}
+          />
+        )}
+      />
+      <>
+        <Controller
+          name="customReplyToEmail"
+          render={({ field: { value, onChange } }) => (
+            <>
+              <SettingsToggle
+                labelClassName={classNames(
+                  "text-sm",
+                  customClassNames?.customReplyToEmail?.label
+                )}
+                toggleSwitchAtTheEnd={true}
+                switchContainerClassName={classNames(
+                  "border-subtle rounded-lg border py-6 px-4 sm:px-6",
+                  !!value && "rounded-b-none",
+                  customClassNames?.customReplyToEmail?.container
+                )}
+                descriptionClassName={
+                  customClassNames?.customReplyToEmail?.description
+                }
+                childrenClassName={classNames(
+                  "lg:ml-0",
+                  customClassNames?.customReplyToEmail?.children
+                )}
+                title={t("custom_reply_to_email_title")}
+                {...customReplyToEmailLocked}
+                data-testid="custom-reply-to-email"
+                description={t("custom_reply_to_email_description")}
+                checked={!!customReplyToEmail}
+                onCheckedChange={(e) => {
+                  onChange(
+                    e
+                      ? customReplyToEmail ||
+                          eventType.customReplyToEmail ||
+                          verifiedEmails?.[0] ||
+                          null
+                      : null
+                  );
+                }}
+              >
+                {isPlatform && (
+                  <AddVerifiedEmail
+                    username={eventType.users[0]?.name || "there"}
+                    showToast={showToast}
+                  />
+                )}
+                <div className="border-subtle rounded-b-lg border border-t-0 p-6">
+                  <SelectField
+                    className="w-full"
+                    label={t("custom_reply_to_email_title")}
+                    required={!!customReplyToEmail}
+                    placeholder={t("select_verified_email")}
+                    data-testid="custom-reply-to-email-input"
+                    value={value ? { label: value, value } : undefined}
+                    onChange={(option) => onChange(option?.value || null)}
+                    options={
+                      verifiedEmails?.map((email) => ({
+                        label: email,
+                        value: email,
+                      })) || []
+                    }
+                  />
+                </div>
+              </SettingsToggle>
+            </>
+          )}
+        />
+      </>
+      <Controller
+        name="eventTypeColor"
+        render={() => (
+          <SettingsToggle
+            labelClassName={classNames(
+              "text-sm",
+              customClassNames?.eventTypeColors?.label
+            )}
+            toggleSwitchAtTheEnd={true}
+            switchContainerClassName={classNames(
+              "border-subtle rounded-lg border py-6 px-4 sm:px-6",
+              isEventTypeColorChecked && "rounded-b-none",
+              customClassNames?.eventTypeColors?.container
+            )}
+            title={t("event_type_color")}
+            {...eventTypeColorLocked}
+            description={t("event_type_color_description")}
+            descriptionClassName={
+              customClassNames?.eventTypeColors?.description
+            }
+            checked={isEventTypeColorChecked}
+            onCheckedChange={(e) => {
+              const value = e ? eventTypeColorState : null;
+              formMethods.setValue("eventTypeColor", value, {
+                shouldDirty: true,
+              });
+              setIsEventTypeColorChecked(e);
+            }}
+            childrenClassName={classNames(
+              "lg:ml-0",
+              customClassNames?.eventTypeColors?.children
+            )}
+          >
+            <div className="border-subtle flex flex-col gap-6 rounded-b-lg border border-t-0 p-6">
+              <div>
+                <p className="text-default mb-2 block text-sm font-medium">
+                  {t("light_event_type_color")}
+                </p>
+                <ColorPicker
+                  defaultValue={eventTypeColorState.lightEventTypeColor}
+                  onChange={(value) => {
+                    const newVal = {
+                      ...eventTypeColorState,
+                      lightEventTypeColor: value,
+                    };
+                    formMethods.setValue("eventTypeColor", newVal, {
+                      shouldDirty: true,
+                    });
+                    setEventTypeColorState(newVal);
+                    if (checkWCAGContrastColor("#ffffff", value)) {
+                      setLightModeError(false);
+                    } else {
+                      setLightModeError(true);
+                    }
+                  }}
+                />
+                {lightModeError ? (
+                  <div className="mt-4">
+                    <Alert
+                      severity="warning"
+                      className={customClassNames?.eventTypeColors?.warningText}
+                      message={t("event_type_color_light_theme_contrast_error")}
+                    />
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mt-6 sm:mt-0">
+                <p className="text-default mb-2 block text-sm font-medium">
+                  {t("dark_event_type_color")}
+                </p>
+                <ColorPicker
+                  defaultValue={eventTypeColorState.darkEventTypeColor}
+                  onChange={(value) => {
+                    const newVal = {
+                      ...eventTypeColorState,
+                      darkEventTypeColor: value,
+                    };
+                    formMethods.setValue("eventTypeColor", newVal, {
+                      shouldDirty: true,
+                    });
+                    setEventTypeColorState(newVal);
+                    if (checkWCAGContrastColor("#101010", value)) {
+                      setDarkModeError(false);
+                    } else {
+                      setDarkModeError(true);
+                    }
+                  }}
+                />
+                {darkModeError ? (
+                  <div className="mt-4">
+                    <Alert
+                      severity="warning"
+                      className={customClassNames?.eventTypeColors?.warningText}
+                      message={t("event_type_color_dark_theme_contrast_error")}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </SettingsToggle>
+        )}
+      />
+      <Controller
+        name="showOptimizedSlots"
+        render={({ field: { onChange, value } }) => {
+          const isChecked = value;
+          return (
+            <SettingsToggle
+              toggleSwitchAtTheEnd={true}
+              labelClassName="text-sm"
+              title={t("show_optimized_slots")}
+              description={
+                <LearnMoreLink
+                  t={t}
+                  i18nKey="show_optimized_slots_description"
+                  href="https://cal.com/help/event-types/optimized-slots#optimized-slots"
+                />
+              }
+              checked={isChecked}
+              {...showOptimizedSlotsLocked}
+              onCheckedChange={(active) => {
+                onChange(active ?? false);
+              }}
+              switchContainerClassName={classNames(
+                "border-subtle rounded-lg border py-6 px-4 sm:px-6",
+                isChecked && "rounded-b-none"
+              )}
+            />
+          );
+        }}
+      />
+      {isRoundRobinEventType && (
+        <Controller
+          name="rescheduleWithSameRoundRobinHost"
+          render={({ field: { value, onChange } }) => (
+            <SettingsToggle
+              labelClassName={classNames(
+                "text-sm",
+                customClassNames?.roundRobinReschedule?.label
+              )}
+              toggleSwitchAtTheEnd={true}
+              switchContainerClassName={classNames(
+                "border-subtle rounded-lg border py-6 px-4 sm:px-6",
+                customClassNames?.roundRobinReschedule?.container
+              )}
+              title={t("reschedule_with_same_round_robin_host_title")}
+              description={t(
+                "reschedule_with_same_round_robin_host_description"
+              )}
+              descriptionClassName={
+                customClassNames?.roundRobinReschedule?.description
+              }
+              checked={value}
+              onCheckedChange={(e) => onChange(e)}
+            />
+          )}
+        />
+      )}
+      {allowDisablingAttendeeConfirmationEmails(workflows) && (
+        <Controller
+          name="metadata.disableStandardEmails.confirmation.attendee"
+          render={({ field: { value, onChange } }) => (
+            <>
+              <SettingsToggle
+                labelClassName={classNames(
+                  "text-sm",
+                  customClassNames?.emailNotifications?.label
+                )}
+                toggleSwitchAtTheEnd={true}
+                switchContainerClassName={classNames(
+                  "border-subtle rounded-lg border py-6 px-4 sm:px-6",
+                  customClassNames?.emailNotifications?.container
+                )}
+                title={t("disable_attendees_confirmation_emails")}
+                description={t(
+                  "disable_attendees_confirmation_emails_description"
+                )}
+                descriptionClassName={
+                  customClassNames?.emailNotifications?.description
+                }
+                checked={value}
+                onCheckedChange={(e) => onChange(e)}
+              />
+            </>
+          )}
+        />
+      )}
+      {allowDisablingHostConfirmationEmails(workflows) && (
+        <Controller
+          name="metadata.disableStandardEmails.confirmation.host"
+          defaultValue={!!formMethods.getValues("seatsPerTimeSlot")}
+          render={({ field: { value, onChange } }) => (
+            <>
+              <SettingsToggle
+                labelClassName={classNames(
+                  "text-sm",
+                  customClassNames?.emailNotifications?.label
+                )}
+                toggleSwitchAtTheEnd={true}
+                switchContainerClassName={classNames(
+                  "border-subtle rounded-lg border py-6 px-4 sm:px-6",
+                  customClassNames?.emailNotifications?.container
+                )}
+                descriptionClassName={
+                  customClassNames?.emailNotifications?.description
+                }
+                title={t("disable_host_confirmation_emails")}
+                description={t("disable_host_confirmation_emails_description")}
+                checked={value}
+                onCheckedChange={(e) => onChange(e)}
+              />
+            </>
+          )}
+        />
+      )}
+
+      {team?.parentId && (
+        <>
+          <Controller
+            name="metadata.disableStandardEmails.all.attendee"
+            render={({ field: { value, onChange } }) => {
+              return (
+                <>
+                  <DisableAllEmailsSetting
+                    checked={value}
+                    onCheckedChange={onChange}
+                    recipient="attendees"
+                    customClassNames={customClassNames?.emailNotifications}
+                    t={t}
+                  />
+                </>
+              );
+            }}
+          />
+          <Controller
+            name="metadata.disableStandardEmails.all.host"
+            defaultValue={!!formMethods.getValues("seatsPerTimeSlot")}
+            render={({ field: { value, onChange } }) => (
+              <>
+                <DisableAllEmailsSetting
+                  checked={value}
+                  onCheckedChange={onChange}
+                  recipient="hosts"
+                  customClassNames={customClassNames?.emailNotifications}
+                  t={t}
+                />
+              </>
+            )}
+          />
+        </>
+      )}
+      {showEventNameTip && (
+        <CustomEventTypeModal
+          close={closeEventNameTip}
+          setValue={(val: string) =>
+            formMethods.setValue("eventName", val, { shouldDirty: true })
+          }
+          defaultValue={formMethods.getValues("eventName")}
+          placeHolder={eventNamePlaceholder}
+          isNameFieldSplit={isSplit}
+          event={eventNameObject}
+          customClassNames={customClassNames?.customEventTypeModal}
+        />
+      )}
     </div>
   );
 };
