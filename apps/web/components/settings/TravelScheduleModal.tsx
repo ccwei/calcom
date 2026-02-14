@@ -2,6 +2,7 @@ import dayjs from "@calcom/dayjs";
 import { useTimePreferences } from "@calcom/features/bookings/lib/timePreferences";
 import { TimezoneSelect } from "@calcom/web/modules/timezone/components/TimezoneSelect";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
+import type { CSSObjectWithLabel } from "react-select";
 import { DatePicker, SettingsToggle } from "@calcom/ui/components/form";
 import { DatePickerWithRange as DateRangePicker } from "@calcom/ui/components/form/date-range-picker/DateRangePicker";
 import { Button } from "@coss/ui/components/button";
@@ -168,7 +169,7 @@ const TravelScheduleModal = ({
               onChange={({ value }) => setSelectedTimeZone(value)}
               menuPortalTarget={typeof document === "undefined" ? undefined : document.body}
               menuPlacement={isMobile ? "top" : "auto"}
-              styles={{ menuPortal: (base) => Object.assign({}, base, { zIndex: 9999 }) }}
+              styles={{ menuPortal: (base: CSSObjectWithLabel) => ({ ...base, zIndex: 9999 }) }}
               className="mb-11 mt-2 w-full rounded-md text-sm"
             />
           </div>
