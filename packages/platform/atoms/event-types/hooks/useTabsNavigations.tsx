@@ -1,16 +1,19 @@
 "use client";
 
-import type { TFunction } from "i18next";
-import { useMemo } from "react";
-import type { UseFormReturn } from "react-hook-form";
-
 import { getPaymentAppData } from "@calcom/app-store/_utils/payments/getPaymentAppData";
 import { eventTypeMetaDataSchemaWithTypedApps } from "@calcom/app-store/zod-utils";
 import useLockedFieldsManager from "@calcom/features/ee/managed-event-types/hooks/useLockedFieldsManager";
 import type { Workflow } from "@calcom/features/ee/workflows/lib/types";
-import type { EventTypeSetupProps, FormValues, EventTypeApps } from "@calcom/features/eventtypes/lib/types";
+import type {
+  EventTypeApps,
+  EventTypeSetupProps,
+  FormValues,
+} from "@calcom/features/eventtypes/lib/types";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import type { VerticalTabItemProps } from "@calcom/ui/components/navigation";
+import type { TFunction } from "i18next";
+import { useMemo } from "react";
+import type { UseFormReturn } from "react-hook-form";
 
 type Props = {
   formMethods: UseFormReturn<FormValues>;
@@ -38,18 +41,20 @@ export const useTabsNavigations = ({
   const availability = formMethods.watch("availability");
   const appsMetadata = formMethods.getValues("metadata")?.apps;
 
-  const { isManagedEventType, isChildrenManagedEventType } = useLockedFieldsManager({
-    eventType,
-    translate: t,
-    formMethods,
-  });
+  const { isManagedEventType, isChildrenManagedEventType } =
+    useLockedFieldsManager({
+      eventType,
+      translate: t,
+      formMethods,
+    });
 
   let enabledAppsNumber = 0;
 
   if (appsMetadata) {
     enabledAppsNumber = Object.entries(appsMetadata).filter(
       ([appId, appData]) =>
-        eventTypeApps?.items.find((app) => app.slug === appId)?.isInstalled && appData.enabled
+        eventTypeApps?.items.find((app) => app.slug === appId)?.isInstalled &&
+        appData.enabled
     ).length;
   }
   const paymentAppData = getPaymentAppData({
@@ -59,10 +64,15 @@ export const useTabsNavigations = ({
 
   const requirePayment = paymentAppData.price > 0;
 
-  const activeWebhooksNumber = eventType.webhooks.filter((webhook) => webhook.active).length;
+  const activeWebhooksNumber = eventType.webhooks.filter(
+    (webhook) => webhook.active
+  ).length;
 
-  const installedAppsNumber = eventTypeApps?.items.filter((app) => app.isInstalled).length || 0;
-  const enabledWorkflowsNumber = allActiveWorkflows ? allActiveWorkflows.length : 0;
+  const installedAppsNumber =
+    eventTypeApps?.items.filter((app) => app.isInstalled).length || 0;
+  const enabledWorkflowsNumber = allActiveWorkflows
+    ? allActiveWorkflows.length
+    : 0;
 
   const eventTypeId = formMethods.getValues("id");
 
@@ -82,11 +92,13 @@ export const useTabsNavigations = ({
           ? formMethods.getValues("schedule") === null
             ? t("members_default_schedule")
             : isChildrenManagedEventType
-              ? `${formMethods.getValues("scheduleName")
-                ? `${formMethods.getValues("scheduleName")} - ${t("managed")}`
-                : t(`default_schedule_name`)
+            ? `${
+                formMethods.getValues("scheduleName")
+                  ? `${formMethods.getValues("scheduleName")} - ${t("managed")}`
+                  : t(`default_schedule_name`)
               }`
-              : formMethods.getValues("scheduleName") ?? t(`default_schedule_name`)
+            : formMethods.getValues("scheduleName") ??
+              t(`default_schedule_name`)
           : formMethods.getValues("scheduleName") ?? t(`default_schedule_name`),
       "data-testid": "availability",
     });
@@ -96,8 +108,11 @@ export const useTabsNavigations = ({
         name: t("assignment"),
         href: `/event-types/${eventTypeId}?tabName=team`,
         icon: "users",
-        info: `${t(watchSchedulingType?.toLowerCase() ?? "")}${isManagedEventType ? ` - ${t("number_member", { count: watchChildrenCount || 0 })}` : ""
-          }`,
+        info: `${t(watchSchedulingType?.toLowerCase() ?? "")}${
+          isManagedEventType
+            ? ` - ${t("number_member", { count: watchChildrenCount || 0 })}`
+            : ""
+        }`,
         "data-testid": "assignment",
       });
     }
@@ -133,8 +148,14 @@ type getNavigationProps = {
   multipleDuration?: EventTypeSetupProps["eventType"]["metadata"]["multipleDuration"];
 };
 
-function getNavigation({ length, id, multipleDuration, t }: getNavigationProps) {
-  const duration = multipleDuration?.map((duration) => ` ${duration}`) || length;
+function getNavigation({
+  length,
+  id,
+  multipleDuration,
+  t,
+}: getNavigationProps) {
+  const duration =
+    multipleDuration?.map((duration) => ` ${duration}`) || length;
 
   const baseNavigation: VerticalTabItemProps[] = [
     {
@@ -151,13 +172,13 @@ function getNavigation({ length, id, multipleDuration, t }: getNavigationProps) 
       info: t(`event_limit_tab_description`),
       "data-testid": "event_limit_tab_title",
     },
-    {
-      name: t("event_advanced_tab_title"),
-      href: `/event-types/${id}?tabName=advanced`,
-      icon: "sliders-vertical",
-      info: t(`event_advanced_tab_description`),
-      "data-testid": "event_advanced_tab_title",
-    },
+    // {
+    //   name: t("event_advanced_tab_title"),
+    //   href: `/event-types/${id}?tabName=advanced`,
+    //   icon: "sliders-vertical",
+    //   info: t(`event_advanced_tab_description`),
+    //   "data-testid": "event_advanced_tab_title",
+    // },
   ];
 
   return baseNavigation;
