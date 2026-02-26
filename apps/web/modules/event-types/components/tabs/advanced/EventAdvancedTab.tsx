@@ -26,7 +26,7 @@ export type EventAdvancedTabCustomClassNames = {
 
 export type EventAdvancedBaseProps = Pick<EventTypeSetupProps, "eventType"> & {
   customClassNames?: EventAdvancedTabCustomClassNames;
-  team?: NonNullable<EventTypeSetupProps["eventType"]["team"]>;
+  team?: EventTypeSetupProps["eventType"]["team"] | null;
   user?: { id: number; username: string | null; name: string | null } | null;
   isUserLoading?: boolean;
   showToast?: (message: string, variant: "success" | "error" | "warning") => void;
