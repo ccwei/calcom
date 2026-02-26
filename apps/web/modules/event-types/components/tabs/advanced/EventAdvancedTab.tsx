@@ -3,11 +3,7 @@ import { LearnMoreLink } from "@calcom/features/eventtypes/components/LearnMoreL
 import type {
   CheckboxClassNames,
   EventTypeSetupProps,
-  FormValues,
-  EventTypeSetupProps,
-  FormValues,
   InputClassNames,
-  SelectClassNames,
   SettingsToggleClassNames,
 } from "@calcom/features/eventtypes/lib/types";
 import { MAX_SEATS_PER_TIME_SLOT } from "@calcom/lib/constants";
@@ -30,6 +26,11 @@ export type EventAdvancedTabCustomClassNames = {
 
 export type EventAdvancedBaseProps = Pick<EventTypeSetupProps, "eventType"> & {
   customClassNames?: EventAdvancedTabCustomClassNames;
+  team?: NonNullable<EventTypeSetupProps["eventType"]["team"]>;
+  user?: { id: number; username: string | null; name: string | null } | null;
+  isUserLoading?: boolean;
+  showToast?: (message: string, variant: "success" | "error" | "warning") => void;
+  orgId?: number | null;
 };
 
 export type EventAdvancedTabProps = EventAdvancedBaseProps & {
@@ -41,23 +42,6 @@ export type EventAdvancedTabProps = EventAdvancedBaseProps & {
   showBookerLayoutSelector: boolean;
   localeOptions?: { value: string; label: string }[];
   verifiedEmails?: string[];
-};
-
-type CalendarSettingsProps = {
-  eventType: EventAdvancedTabProps["eventType"];
-  customClassNames?: EventAdvancedTabCustomClassNames;
-  calendarsQuery: NonNullable<EventAdvancedTabProps["calendarsQuery"]>;
-  eventNameLocked: {
-    disabled: boolean;
-    LockedIcon: false | JSX.Element;
-  };
-  eventNamePlaceholder: string;
-  setShowEventNameTip: Dispatch<SetStateAction<boolean>>;
-  showToast: EventAdvancedTabProps["showToast"];
-  verifiedSecondaryEmails: { label: string; value: number }[];
-  userEmail: string;
-  isTeamEventType: boolean;
-  isChildrenManagedEventType: boolean;
 };
 
 export const EventAdvancedTab = ({
@@ -127,13 +111,7 @@ export const EventAdvancedTab = ({
               data-testid="offer-seats-toggle"
               title={t("offer_seats") + " (for Group sessions only)"}
               {...seatsLocked}
-              description={
-                <LearnMoreLink
-                  t={t}
-                  i18nKey="offer_seats_description"
-                  href="https://cal.com/help/event-types/offer-seats"
-                />
-              }
+              description="This is for group sessions only, don't enable this if this is not a group session"
               checked={value}
               disabled={
                 noShowFeeEnabled ||
@@ -161,7 +139,7 @@ export const EventAdvancedTab = ({
                   });
                   formMethods.setValue(
                     "seatsPerTimeSlot",
-                    eventType.seatsPerTimeSlot ?? 2,
+                    eventType.seatsPerTimeSlot ?? 5,
                     {
                       shouldDirty: true,
                     }
@@ -184,15 +162,15 @@ export const EventAdvancedTab = ({
                         labelSrOnly
                         label={t("number_of_seats")}
                         type="number"
-                        disabled={seatsLocked.disabled}
+                        disabled={true}
                         //For old events if value > MAX_SEATS_PER_TIME_SLOT
                         value={
                           value > MAX_SEATS_PER_TIME_SLOT
                             ? MAX_SEATS_PER_TIME_SLOT
-                            : value ?? 1
+                            : value ?? 5
                         }
                         step={1}
-                        placeholder="1"
+                        placeholder="5"
                         min={1}
                         max={MAX_SEATS_PER_TIME_SLOT}
                         containerClassName={classNames(
