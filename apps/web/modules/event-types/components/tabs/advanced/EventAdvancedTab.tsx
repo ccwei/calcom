@@ -1,8 +1,8 @@
 import useLockedFieldsManager from "@calcom/features/ee/managed-event-types/hooks/useLockedFieldsManager";
-import { LearnMoreLink } from "@calcom/features/eventtypes/components/LearnMoreLink";
 import type {
   CheckboxClassNames,
   EventTypeSetupProps,
+  FormValues,
   InputClassNames,
   SettingsToggleClassNames,
 } from "@calcom/features/eventtypes/lib/types";
@@ -12,6 +12,7 @@ import type { EditableSchema } from "@calcom/prisma/zod-utils";
 import classNames from "@calcom/ui/classNames";
 import { Alert } from "@calcom/ui/components/alert";
 import { SettingsToggle, TextField } from "@calcom/ui/components/form";
+import type { RouterOutputs } from "@calcom/trpc/react";
 import { Controller, useFormContext } from "react-hook-form";
 import type { z } from "zod";
 
@@ -29,7 +30,10 @@ export type EventAdvancedBaseProps = Pick<EventTypeSetupProps, "eventType"> & {
   team?: EventTypeSetupProps["eventType"]["team"] | null;
   user?: { id: number; username: string | null; name: string | null } | null;
   isUserLoading?: boolean;
-  showToast?: (message: string, variant: "success" | "error" | "warning") => void;
+  showToast?: (
+    message: string,
+    variant: "success" | "error" | "warning"
+  ) => void;
   orgId?: number | null;
 };
 
@@ -59,7 +63,7 @@ export const EventAdvancedTab = ({
   const isRecurringEvent = !!formMethods.getValues("recurringEvent");
 
   const toggleGuests = (enabled: boolean) => {
-    const bookingFields = formMethods.getValues("bookingFields");
+    const bookingFields = formMethods.getValues("bookingFields") as FormValues["bookingFields"];
     formMethods.setValue(
       "bookingFields",
       bookingFields.map((field) => {
@@ -85,6 +89,15 @@ export const EventAdvancedTab = ({
   });
 
   const seatsLocked = shouldLockDisableProps("seatsPerTimeSlotEnabled");
+
+  let seatsTooltip: string | undefined;
+  if (multiLocation) {
+    seatsTooltip = t("multilocation_doesnt_support_seats");
+  } else if (noShowFeeEnabled) {
+    seatsTooltip = t("no_show_fee_doesnt_support_seats");
+  } else if (isRecurringEvent) {
+    seatsTooltip = t("recurring_event_doesnt_support_seats");
+  }
 
   return (
     <div className="stack-y-4 flex flex-col">
@@ -118,15 +131,7 @@ export const EventAdvancedTab = ({
                 multiLocation ||
                 (!seatsEnabled && isRecurringEvent)
               }
-              tooltip={
-                multiLocation
-                  ? t("multilocation_doesnt_support_seats")
-                  : noShowFeeEnabled
-                  ? t("no_show_fee_doesnt_support_seats")
-                  : isRecurringEvent
-                  ? t("recurring_event_doesnt_support_seats")
-                  : undefined
-              }
+              tooltip={seatsTooltip}
               onCheckedChange={(e) => {
                 // Enabling seats will disable guests and requiring confirmation until fully supported
                 if (e) {
@@ -151,7 +156,7 @@ export const EventAdvancedTab = ({
                 onChange(e);
               }}
             >
-              <div className="border-subtle rounded-b-lg border border-t-0 p-6">
+              <div className="border-subtle border border-t-0 rounded-b-lg p-6">
                 <Controller
                   name="seatsPerTimeSlot"
                   render={({ field: { value, onChange } }) => (
