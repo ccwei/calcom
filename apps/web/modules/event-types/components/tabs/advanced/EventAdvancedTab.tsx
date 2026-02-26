@@ -1,13 +1,13 @@
-import { Controller, useFormContext } from "react-hook-form";
-import type { z } from "zod";
-
 import useLockedFieldsManager from "@calcom/features/ee/managed-event-types/hooks/useLockedFieldsManager";
 import { LearnMoreLink } from "@calcom/features/eventtypes/components/LearnMoreLink";
 import type {
+  CheckboxClassNames,
+  EventTypeSetupProps,
   FormValues,
   EventTypeSetupProps,
-  CheckboxClassNames,
+  FormValues,
   InputClassNames,
+  SelectClassNames,
   SettingsToggleClassNames,
 } from "@calcom/features/eventtypes/lib/types";
 import { MAX_SEATS_PER_TIME_SLOT } from "@calcom/lib/constants";
@@ -16,6 +16,8 @@ import type { EditableSchema } from "@calcom/prisma/zod-utils";
 import classNames from "@calcom/ui/classNames";
 import { Alert } from "@calcom/ui/components/alert";
 import { SettingsToggle, TextField } from "@calcom/ui/components/form";
+import { Controller, useFormContext } from "react-hook-form";
+import type { z } from "zod";
 
 export type EventAdvancedTabCustomClassNames = {
   seatsOptions?: SettingsToggleClassNames & {
