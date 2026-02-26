@@ -6,6 +6,7 @@ import classNames from "@calcom/ui/classNames";
 import { getReactSelectProps, inputStyles } from "@calcom/ui/components/form";
 import { useCallback, useMemo, useState } from "react";
 import type { ITimezone, ITimezoneOption, Props as SelectProps } from "react-timezone-select";
+import type { CSSObjectWithLabel } from "react-select";
 import BaseSelect from "react-timezone-select";
 
 export type TimezoneSelectComponentProps = SelectProps & {
@@ -102,12 +103,12 @@ export function TimezoneSelectComponent({
       {...reactSelectProps}
       timezones={timezones}
       styles={{
-        control: (base) =>
+        control: (base: CSSObjectWithLabel) =>
           Object.assign({}, base, {
             minHeight: size === "sm" ? "28px" : "36px",
             height: grow ? "h-auto " : size === "sm" ? "28px" : "36px",
           }),
-        menuList: (base) =>
+        menuList: (base: CSSObjectWithLabel) =>
           Object.assign({}, base, {
             height: grow ? "h-auto " : size === "sm" ? "200px" : "180px",
           }),
