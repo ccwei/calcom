@@ -5,7 +5,6 @@ import type { Timezone } from "@calcom/features/bookings/Booker/types";
 import { useTimePreferences } from "@calcom/features/bookings/lib";
 import type { BookerEvent } from "@calcom/features/bookings/types";
 import { EventDetailBlocks } from "@calcom/features/bookings/types";
-import type { TimezoneSelectComponentProps } from "@calcom/features/timezone/components/TimezoneSelectComponent";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { CURRENT_TIMEZONE } from "@calcom/lib/timezoneConstants";
 import { Button } from "@calcom/ui/components/button";
@@ -14,18 +13,12 @@ import dynamic from "next/dynamic";
 import type { ComponentType } from "react";
 import { useMemo } from "react";
 import { shallow } from "zustand/shallow";
+import type { TimezoneSelectProps } from "@calcom/web/modules/timezone/components/TimezoneSelect";
 import { EventDetails } from "./event-meta/Details";
 
 const LoadingState = (): JSX.Element => {
   const { t } = useLocale();
   return <span className="text-default text-sm">{t("loading")}</span>;
-};
-
-type TimezoneSelectProps = Omit<
-  TimezoneSelectComponentProps,
-  "data" | "isPending" | "isWebTimezoneSelect"
-> & {
-  timeZones?: Timezone[];
 };
 
 const WebTimezoneSelect: ComponentType<TimezoneSelectProps> = dynamic(
