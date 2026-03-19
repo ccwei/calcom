@@ -9,10 +9,10 @@ import type {
 import { MAX_SEATS_PER_TIME_SLOT } from "@calcom/lib/constants";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import type { EditableSchema } from "@calcom/prisma/zod-utils";
+import type { RouterOutputs } from "@calcom/trpc/react";
 import classNames from "@calcom/ui/classNames";
 import { Alert } from "@calcom/ui/components/alert";
 import { SettingsToggle, TextField } from "@calcom/ui/components/form";
-import type { RouterOutputs } from "@calcom/trpc/react";
 import { Controller, useFormContext } from "react-hook-form";
 import type { z } from "zod";
 
@@ -63,7 +63,9 @@ export const EventAdvancedTab = ({
   const isRecurringEvent = !!formMethods.getValues("recurringEvent");
 
   const toggleGuests = (enabled: boolean) => {
-    const bookingFields = formMethods.getValues("bookingFields") as FormValues["bookingFields"];
+    const bookingFields = formMethods.getValues(
+      "bookingFields"
+    ) as FormValues["bookingFields"];
     formMethods.setValue(
       "bookingFields",
       bookingFields.map((field) => {
@@ -122,9 +124,9 @@ export const EventAdvancedTab = ({
               )}
               descriptionClassName={customClassNames?.seatsOptions?.description}
               data-testid="offer-seats-toggle"
-              title={t("offer_seats") + " (for Group sessions only)"}
+              title={"Group sessions"}
               {...seatsLocked}
-              description="This is for group sessions only, don't enable this if this is not a group session"
+              description="This is for group sessions only, don't enable this if this is not for a group session"
               checked={value}
               disabled={
                 noShowFeeEnabled ||
