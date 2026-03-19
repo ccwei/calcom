@@ -23,8 +23,7 @@ import {
 export const MORE_SEPARATOR_NAME = "more";
 
 const getNavigationItems = (
-  orgBranding: OrganizationBranding,
-  hasAllInsightsAccess: boolean
+  orgBranding: OrganizationBranding
 ): NavigationItemType[] => [
   {
     name: "event_types_page_title",
@@ -148,9 +147,8 @@ const useNavigationItems = (isPlatformNavigation = false) => {
   const orgBranding = useOrgBranding();
   const { hasPaidPlan, isPending } = useHasPaidPlan();
   return useMemo(() => {
-    const hasAllInsightsAccess = !isPending && !!hasPaidPlan;
     const items = !isPlatformNavigation
-      ? getNavigationItems(orgBranding, hasAllInsightsAccess)
+      ? getNavigationItems(orgBranding)
       : platformNavigationItems;
 
     const desktopNavigationItems = items.filter(
