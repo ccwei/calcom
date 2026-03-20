@@ -398,7 +398,7 @@ export class AvailableSlotsService {
     dateTo: Dayjs,
     duration: number | undefined,
     eventType: NonNullable<EventType>,
-    timeZone?: string | null,
+    timeZone?: string,
     rescheduleUid?: string
   ) {
     const userBusyTimesMap = new Map<number, EventBusyDetails[]>();
@@ -668,7 +668,7 @@ export class AvailableSlotsService {
     dateTo: Dayjs,
     teamId: number,
     includeManagedEvents: boolean,
-    timeZone?: string | null,
+    timeZone?: string,
     rescheduleUid?: string
   ) {
     const { limitDateFrom, limitDateTo } = this.dependencies.busyTimesService.getStartEndDateforLimitCheck(
