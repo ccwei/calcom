@@ -46,7 +46,7 @@ export function getOrgSlug(hostname: string, forcedSlug?: string) {
   });
 
   if (!currentHostname) {
-    log.warn("Match of WEBAPP_URL with ALLOWED_HOSTNAMES failed", { WEBAPP_URL, ALLOWED_HOSTNAMES });
+    log.debug("Match of WEBAPP_URL with ALLOWED_HOSTNAMES failed", { WEBAPP_URL, ALLOWED_HOSTNAMES });
     return null;
   }
   // Define which is the current domain/subdomain

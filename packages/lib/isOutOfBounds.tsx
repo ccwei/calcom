@@ -328,7 +328,7 @@ export function isTimeViolatingFutureLimit({
     const isBeforeRangeStart = dateObj.valueOf() < periodLimits.startOfRangeStartDayInEventTz.valueOf();
     const isAfterRangeEnd = dateObj.valueOf() > periodLimits.endOfRangeEndDayInEventTz.valueOf();
     if (isBeforeRangeStart || isAfterRangeEnd)
-      log.warn(
+      log.debug(
         "Booking is out of bounds due to range start and end.",
         safeStringify({
           formattedDate: dateObj.toISOString(),
