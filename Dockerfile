@@ -12,6 +12,7 @@ ARG NEXTAUTH_SECRET=secret
 ARG CALENDSO_ENCRYPTION_KEY=secret
 ARG MAX_OLD_SPACE_SIZE=6144
 ARG NEXT_PUBLIC_API_V2_URL
+ARG NEXT_PUBLIC_SENTRY_DSN
 ARG CSP_POLICY
 
 ## We need these variables as required by Next.js build to create rewrites
