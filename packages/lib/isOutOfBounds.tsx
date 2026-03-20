@@ -313,7 +313,7 @@ export function isTimeViolatingFutureLimit({
       dateObj.valueOf() > periodLimits.endOfRollingPeriodEndDayInBookerTz.valueOf();
 
     if (isAfterRollingEndDay)
-      log.warn(
+      log.debug(
         "Booking is out of bounds due to rolling period end day.",
         safeStringify({
           formattedDate: dateObj.toISOString(),
@@ -382,7 +382,7 @@ export default function isOutOfBounds(
   });
 
   if (isOutOfBoundsByTime) {
-    log.warn(
+    log.debug(
       "Booking is out of bounds due to minimum booking notice.",
       safeStringify({ minimumBookingNotice })
     );
@@ -390,7 +390,7 @@ export default function isOutOfBounds(
   }
 
   if (isOutOfBoundsByPeriod) {
-    log.warn("Booking is out of bounds due to period restrictions", safeStringify({ periodLimits }));
+    log.debug("Booking is out of bounds due to period restrictions", safeStringify({ periodLimits }));
     return true;
   }
 
