@@ -22,7 +22,7 @@ const _getBusyTimesFromLimits = async (
   duration: number | undefined,
   eventType: NonNullable<EventType>,
   bookings: EventBusyDetails[],
-  timeZone: string,
+  timeZone?: string | null,
   rescheduleUid?: string
 ) => {
   performance.mark("limitsStart");
@@ -103,10 +103,10 @@ const _getBusyTimesFromBookingLimits = async (params: {
     if (!limit) continue;
 
     const unit = intervalLimitKeyToUnit(key);
-    const periodStartDates = getPeriodStartDatesBetween(dateFrom, dateTo, unit);
+    const periodStartDates = getPeriodStartDatesBetween(dateFrom, dateTo, unit, timeZone ?? undefined);
 
     for (const periodStart of periodStartDates) {
-      if (limitManager.isAlreadyBusy(periodStart, unit)) continue;
+      if (limitManager.isAlreadyBusy(periodStart, unit, timeZone ?? undefined)) continue;
 
       const { title, source } = teamId
         ? LimitSources.teamBookingLimit({ limit, unit })
@@ -131,10 +131,13 @@ const _getBusyTimesFromBookingLimits = async (params: {
           limitManager.addBusyTime({
             start: periodStart,
             unit,
+            timeZone: timeZone ?? undefined,
             title,
             source,
           });
-          if (periodStartDates.every((start) => limitManager.isAlreadyBusy(start, unit))) {
+          if (
+            periodStartDates.every((start) => limitManager.isAlreadyBusy(start, unit, timeZone ?? undefined))
+          ) {
             return;
           }
         }
@@ -146,7 +149,7 @@ const _getBusyTimesFromBookingLimits = async (params: {
 
       for (const booking of bookings) {
         // consider booking part of period independent of end date
-        if (!isBookingWithinPeriod(booking, periodStart, periodEnd, timeZone || "UTC")) {
+        if (!isBookingWithinPeriod(booking, periodStart, periodEnd, timeZone)) {
           continue;
         }
         totalBookings++;
@@ -154,6 +157,7 @@ const _getBusyTimesFromBookingLimits = async (params: {
           limitManager.addBusyTime({
             start: periodStart,
             unit,
+            timeZone: timeZone ?? undefined,
             title,
             source,
           });
@@ -171,7 +175,7 @@ const _getBusyTimesFromDurationLimits = async (
   duration: number | undefined,
   eventType: NonNullable<EventType>,
   limitManager: LimitManager,
-  timeZone: string,
+  timeZone?: string | null,
   rescheduleUid?: string
 ) => {
   for (const key of descendingLimitKeys) {
@@ -179,10 +183,10 @@ const _getBusyTimesFromDurationLimits = async (
     if (!limit) continue;
 
     const unit = intervalLimitKeyToUnit(key);
-    const periodStartDates = getPeriodStartDatesBetween(dateFrom, dateTo, unit);
+    const periodStartDates = getPeriodStartDatesBetween(dateFrom, dateTo, unit, timeZone ?? undefined);
 
     for (const periodStart of periodStartDates) {
-      if (limitManager.isAlreadyBusy(periodStart, unit)) continue;
+      if (limitManager.isAlreadyBusy(periodStart, unit, timeZone ?? undefined)) continue;
 
       const selectedDuration = (duration || eventType.length) ?? 0;
 
@@ -192,6 +196,7 @@ const _getBusyTimesFromDurationLimits = async (
         limitManager.addBusyTime({
           start: periodStart,
           unit,
+          timeZone: timeZone ?? undefined,
           title,
           source,
         });
@@ -211,10 +216,13 @@ const _getBusyTimesFromDurationLimits = async (
           limitManager.addBusyTime({
             start: periodStart,
             unit,
+            timeZone: timeZone ?? undefined,
             title,
             source,
           });
-          if (periodStartDates.every((start) => limitManager.isAlreadyBusy(start, unit))) {
+          if (
+            periodStartDates.every((start) => limitManager.isAlreadyBusy(start, unit, timeZone ?? undefined))
+          ) {
             return;
           }
         }
@@ -226,7 +234,7 @@ const _getBusyTimesFromDurationLimits = async (
 
       for (const booking of bookings) {
         // consider booking part of period independent of end date
-        if (!isBookingWithinPeriod(booking, periodStart, periodEnd, timeZone || "UTC")) {
+        if (!isBookingWithinPeriod(booking, periodStart, periodEnd, timeZone)) {
           continue;
         }
         totalDuration += dayjs(booking.end).diff(dayjs(booking.start), "minute");
@@ -234,6 +242,7 @@ const _getBusyTimesFromDurationLimits = async (
           limitManager.addBusyTime({
             start: periodStart,
             unit,
+            timeZone: timeZone ?? undefined,
             title,
             source,
           });
@@ -256,7 +265,7 @@ const _getBusyTimesFromTeamLimits = async (
   dateTo: Dayjs,
   teamId: number,
   includeManagedEvents: boolean,
-  timeZone: string,
+  timeZone?: string | null,
   rescheduleUid?: string
 ) => {
   const busyTimesService = getBusyTimesService();

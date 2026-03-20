@@ -1,7 +1,6 @@
 import type { Dayjs } from "@calcom/dayjs";
 import dayjs from "@calcom/dayjs";
 import type { EventBusyDetails } from "@calcom/types/Calendar";
-
 import type { IntervalLimitUnit } from "./intervalLimitSchema";
 
 /**
@@ -16,9 +15,9 @@ export function extractDateParameters(
   booking: EventBusyDetails,
   periodStart: Dayjs,
   periodEnd: Dayjs,
-  timeZone: string
+  timeZone?: string | null
 ) {
-  const bookingStart = dayjs(booking.start).tz(timeZone);
+  const bookingStart = timeZone ? dayjs(booking.start).tz(timeZone) : dayjs(booking.start);
   const bookingDay = bookingStart.format("YYYY-MM-DD");
   const periodStartDay = periodStart.format("YYYY-MM-DD");
   const periodEndDay = periodEnd.format("YYYY-MM-DD");
@@ -43,7 +42,7 @@ export function isBookingWithinPeriod(
   booking: EventBusyDetails,
   periodStart: Dayjs,
   periodEnd: Dayjs,
-  timeZone: string
+  timeZone?: string | null
 ) {
   const { bookingDay, periodStartDay, periodEndDay } = extractDateParameters(
     booking,
