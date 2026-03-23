@@ -265,19 +265,26 @@ class GoogleCalendarService implements Calendar {
               safeStringify({ selectedCalendar, credentialId })
             );
           }
-          await calendar.events.patch({
-            calendarId: selectedCalendar,
-            eventId: event.id || "",
-            requestBody: {
-              location: getLocation({
-                videoCallData: calEvent.videoCallData,
-                additionalInformation: calEvent.additionalInformation,
-                location: calEvent.location,
-                uid: calEvent.uid,
-              }),
-              description: calEvent.calendarDescription,
-            },
-          });
+          try {
+            await calendar.events.patch({
+              calendarId: selectedCalendar,
+              eventId: event.id || "",
+              requestBody: {
+                location: getLocation({
+                  videoCallData: calEvent.videoCallData,
+                  additionalInformation: calEvent.additionalInformation,
+                  location: calEvent.location,
+                  uid: calEvent.uid,
+                }),
+                description: calEvent.calendarDescription,
+              },
+            });
+          } catch (error) {
+            this.log.warn("Failed to patch recurring event instance, booking will proceed without it", {
+              eventId: event?.id,
+              error: safeStringify(error),
+            });
+          }
         }
       } else {
         const eventResponse = await calendar.events.insert({
@@ -293,29 +300,6 @@ class GoogleCalendarService implements Calendar {
             event = await this.getFirstEventInRecurrence(recurringEventId, selectedCalendar, calendar);
           }
         }
-      }
-
-      if (event && event.id && event.hangoutLink) {
-        await calendar.events.patch({
-          // Update the same event but this time we know the hangout link
-          calendarId: selectedCalendar,
-          eventId: event.id || "",
-          requestBody: {
-            description: getRichDescription({
-              ...calEvent,
-              additionalInformation: { hangoutLink: event.hangoutLink },
-            }),
-            location: getLocation({
-              videoCallData: calEvent.videoCallData,
-              additionalInformation: {
-                ...calEvent.additionalInformation,
-                hangoutLink: event.hangoutLink,
-              },
-              location: calEvent.location,
-              uid: calEvent.uid,
-            }),
-          },
-        });
       }
 
       return {
@@ -417,26 +401,6 @@ class GoogleCalendarService implements Calendar {
       });
 
       if (evt && evt.data.id && evt.data.hangoutLink && event.location === MeetLocationType) {
-        await calendar.events.patch({
-          // Update the same event but this time we know the hangout link
-          calendarId: selectedCalendar,
-          eventId: evt.data.id || "",
-          requestBody: {
-            description: getRichDescription({
-              ...event,
-              additionalInformation: { hangoutLink: evt.data.hangoutLink },
-            }),
-            location: getLocation({
-              videoCallData: event.videoCallData,
-              additionalInformation: {
-                ...event.additionalInformation,
-                hangoutLink: evt.data.hangoutLink,
-              },
-              location: event.location,
-              uid: event.uid,
-            }),
-          },
-        });
         return {
           uid: "",
           ...evt.data,
