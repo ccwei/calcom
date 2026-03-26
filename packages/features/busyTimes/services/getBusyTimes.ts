@@ -295,13 +295,14 @@ export class BusyTimesService {
     startDate: string,
     endDate: string,
     bookingLimits?: IntervalLimit | null,
-    durationLimits?: IntervalLimit | null
+    durationLimits?: IntervalLimit | null,
+    timeZone?: string | null
   ) {
-    const startTimeAsDayJs = stringToDayjs(startDate);
-    const endTimeAsDayJs = stringToDayjs(endDate);
+    const startTimeAsDayJs = timeZone ? stringToDayjs(startDate).tz(timeZone) : stringToDayjs(startDate);
+    const endTimeAsDayJs = timeZone ? stringToDayjs(endDate).tz(timeZone) : stringToDayjs(endDate);
 
-    let limitDateFrom = stringToDayjs(startDate);
-    let limitDateTo = stringToDayjs(endDate);
+    let limitDateFrom = startTimeAsDayJs;
+    let limitDateTo = endTimeAsDayJs;
 
     // expand date ranges by absolute minimum required to apply limits
     // (yearly limits are handled separately for performance)
@@ -324,8 +325,18 @@ export class BusyTimesService {
     rescheduleUid?: string | null;
     bookingLimits?: IntervalLimit | null;
     durationLimits?: IntervalLimit | null;
+    timeZone?: string | null;
   }) {
-    const { userIds, eventTypeId, startDate, endDate, rescheduleUid, bookingLimits, durationLimits } = params;
+    const {
+      userIds,
+      eventTypeId,
+      startDate,
+      endDate,
+      rescheduleUid,
+      bookingLimits,
+      durationLimits,
+      timeZone,
+    } = params;
 
     performance.mark("getBusyTimesForLimitChecksStart");
 
@@ -339,7 +350,8 @@ export class BusyTimesService {
       startDate,
       endDate,
       bookingLimits,
-      durationLimits
+      durationLimits,
+      timeZone
     );
 
     logger.silly(

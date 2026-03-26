@@ -202,6 +202,30 @@ describe("getBusyTimesForLimitChecks", () => {
     expect(busyTimes).toEqual([]);
   });
 
+  it("expands limit fetch window using provided timezone", async () => {
+    const busyTimesService = getBusyTimesService();
+
+    const startDate = "2026-03-29T00:30:00Z";
+    const endDate = "2026-03-29T01:30:00Z";
+
+    // Europe/London will treat "start of week" as earlier UTC instant than UTC's own startOf("week")
+    const { limitDateFrom: utcFrom } = busyTimesService.getStartEndDateforLimitCheck(
+      startDate,
+      endDate,
+      { PER_WEEK: 2 },
+      null
+    );
+    const { limitDateFrom: londonFrom } = busyTimesService.getStartEndDateforLimitCheck(
+      startDate,
+      endDate,
+      { PER_WEEK: 2 },
+      null,
+      "Europe/London"
+    );
+
+    expect(londonFrom.toDate().getTime()).toBeLessThanOrEqual(utcFrom.toDate().getTime());
+  });
+
   it("should fetch bookings for a single user with booking limits", async () => {
     const mockBooking = createMockBookingResult();
     vi.mocked(prisma.booking.findMany).mockResolvedValue([mockBooking]);

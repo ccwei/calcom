@@ -410,7 +410,9 @@ export class AvailableSlotsService {
     const { limitDateFrom, limitDateTo } = this.dependencies.busyTimesService.getStartEndDateforLimitCheck(
       dateFrom.toISOString(),
       dateTo.toISOString(),
-      bookingLimits || durationLimits
+      bookingLimits,
+      durationLimits,
+      timeZone
     );
 
     const busyTimesFromLimitsBookings = await this.dependencies.busyTimesService.getBusyTimesForLimitChecks({
@@ -421,6 +423,7 @@ export class AvailableSlotsService {
       rescheduleUid,
       bookingLimits,
       durationLimits,
+      timeZone,
     });
 
     const globalLimitManager = new LimitManager();
@@ -945,6 +948,7 @@ export class AvailableSlotsService {
           rescheduleUid: input.rescheduleUid,
           bookingLimits,
           durationLimits,
+          timeZone: limitCheckTimeZone,
         });
     }
 

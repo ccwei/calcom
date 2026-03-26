@@ -706,6 +706,7 @@ export class UserAvailabilityService {
         rescheduleUid: initialData?.rescheduleUid ?? undefined,
         bookingLimits,
         durationLimits,
+        timeZone: eventType.schedule?.timeZone ?? undefined,
       });
     }
     const result = await this._getUserAvailability(params, {
