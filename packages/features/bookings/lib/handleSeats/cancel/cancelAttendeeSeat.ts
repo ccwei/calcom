@@ -47,19 +47,37 @@ async function cancelAttendeeSeat(
   if (!input.success) return;
   const { seatReferenceUid } = input.data;
   const bookingToDelete = data.bookingToDelete;
-  if (!bookingToDelete?.attendees.length || bookingToDelete.attendees.length < 2) return;
 
   if (!bookingToDelete.userId) {
     throw new HttpError({ statusCode: 400, message: "User not found" });
   }
 
+  // Look up seatReference before checking attendees count so we can detect partial-failure
+  // states (e.g. attendee already deleted in a previous failed attempt).
   const seatReference = bookingToDelete.seatsReferences.find(
     (reference) => reference.referenceUid === seatReferenceUid
   );
 
   if (!seatReference) throw new HttpError({ statusCode: 400, message: "User not a part of this booking" });
 
-  await Promise.all([
+  // If the attendee was already removed (e.g. a previous request deleted the attendee but
+  // failed before deleting the BookingSeat), clean up the orphaned BookingSeat and return
+  // success so callers don't fall through to a full booking cancellation.
+  const attendeeAlreadyRemoved = !bookingToDelete.attendees.some((a) => a.id === seatReference.attendeeId);
+  if (attendeeAlreadyRemoved) {
+    await prisma.bookingSeat.delete({ where: { referenceUid: seatReferenceUid } }).catch(() => {
+      // BookingSeat may also already be gone — that's fine.
+    });
+    return { success: true };
+  }
+
+  // If this is the last (or only) attendee, fall through so the caller can cancel the
+  // whole booking rather than leaving an empty seated event.
+  if (!bookingToDelete?.attendees.length || bookingToDelete.attendees.length < 2) return;
+
+  // Use a transaction so both records are removed atomically and a partial failure
+  // cannot leave the DB in an inconsistent state on retry.
+  await prisma.$transaction([
     prisma.bookingSeat.delete({
       where: {
         referenceUid: seatReferenceUid,
