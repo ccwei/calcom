@@ -266,7 +266,7 @@ model EventType {
   maxLeadThreshold                         Int?
   includeNoShowInRRCalculation             Boolean                   @default(false)
   selectedCalendars                        SelectedCalendar[]
-  allowReschedulingPastBookings            Boolean                   @default(false)
+  allowReschedulingPastBookings            Boolean                   @default(true)
   hideOrganizerEmail                       Boolean                   @default(false)
   maxActiveBookingsPerBooker               Int?
   maxActiveBookingPerBookerOfferReschedule Boolean                   @default(false)
