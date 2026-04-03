@@ -1,7 +1,29 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import z from "zod";
+import { bookingMetadataSchema, excludeOrRequireEmailSchema } from "./zod-utils";
 
-import { excludeOrRequireEmailSchema } from "./zod-utils";
+describe("bookingMetadataSchema", () => {
+  it("parses when extra fields are non-strings (e.g. orderIds array)", () => {
+    const parsed = bookingMetadataSchema.safeParse({
+      orderId: "order_01",
+      orderIds: ["order_01"],
+      videoCallUrl: "https://meet.google.com/abc-defg-hij",
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data?.videoCallUrl).toBe("https://meet.google.com/abc-defg-hij");
+      expect(parsed.data?.orderIds).toEqual(["order_01"]);
+    }
+  });
+
+  it("rejects wrong types for known string fields", () => {
+    expect(bookingMetadataSchema.safeParse({ videoCallUrl: 123 }).success).toBe(false);
+  });
+
+  it("accepts null", () => {
+    expect(bookingMetadataSchema.safeParse(null).success).toBe(true);
+  });
+});
 
 describe("excludeOrRequireEmailSchema", () => {
   const parse = (input: string) => z.object({ v: excludeOrRequireEmailSchema }).safeParse({ v: input });
