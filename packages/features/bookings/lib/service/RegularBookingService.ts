@@ -109,6 +109,7 @@ import { v5 as uuidv5 } from "uuid";
 import type { BookingRepository } from "../../repositories/BookingRepository";
 import { BookingActionMap, type BookingActionType, BookingEmailSmsHandler } from "../BookingEmailSmsHandler";
 import { getAllCredentialsIncludeServiceAccountKey } from "../getAllCredentialsForUsersOnEvent/getAllCredentials";
+import { mergeConferenceCredentialForBookingIfAllowed } from "../getAllCredentialsForUsersOnEvent/mergeConferenceCredentialForBooking";
 import { refreshCredentials } from "../getAllCredentialsForUsersOnEvent/refreshCredentials";
 import getBookingDataSchema from "../getBookingDataSchema";
 import type { LuckyUserService } from "../getLuckyUser";
@@ -1284,7 +1285,7 @@ async function handler(
     : users[0];
 
   const tOrganizer = await getTranslation(organizerUser?.locale ?? "en", "common");
-  const allCredentials = await getAllCredentialsIncludeServiceAccountKey(organizerUser, eventType);
+  let allCredentials = await getAllCredentialsIncludeServiceAccountKey(organizerUser, eventType);
 
   // If the Organizer himself is rescheduling, the booker should be sent the communication in his timezone and locale.
   const attendeeInfoOnReschedule =
@@ -1442,6 +1443,13 @@ async function handler(
 
   // Use per-host credential if available, otherwise fall back to event type credential
   const conferenceCredentialId = perHostCredentialId ?? eventTypeCredentialId;
+
+  allCredentials = await mergeConferenceCredentialForBookingIfAllowed({
+    prismaClient: deps.prismaClient,
+    organizerUserId: organizerUser.id,
+    conferenceCredentialId,
+    credentials: allCredentials,
+  });
 
   tracingLogger.info("locationBodyString", locationBodyString);
   tracingLogger.info("event type locations", eventType.locations);
