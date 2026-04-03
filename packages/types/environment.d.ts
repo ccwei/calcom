@@ -1,5 +1,7 @@
 declare namespace NodeJS {
   interface ProcessEnv {
+    /** Comma-separated `Credential.id` values allowed for shared conferencing (see `getRuntimeProcessEnv`). */
+    readonly ALLOWED_SHARED_CONFERENCE_CREDENTIAL_IDS: string | undefined;
     readonly CALCOM_TELEMETRY_DISABLED: string | undefined;
     readonly CALENDSO_ENCRYPTION_KEY: string | undefined;
     readonly DATABASE_URL: string | undefined;

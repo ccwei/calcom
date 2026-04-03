@@ -3,6 +3,7 @@
   "globalDependencies": ["yarn.lock"],
   "globalEnv": [
     "ALLOWED_HOSTNAMES",
+    "ALLOWED_SHARED_CONFERENCE_CREDENTIAL_IDS",
     "ANALYZE",
     "AWAITING_PAYMENT_EMAIL_DELAY_MINUTES",
     "API_KEY_PREFIX",
