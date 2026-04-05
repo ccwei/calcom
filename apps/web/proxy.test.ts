@@ -6,8 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Mock } from "vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // We'll test the wrapped proxy as it would be used in production
-import proxy from "./proxy";
-import { config } from "./proxy";
+import proxy, { config } from "./proxy";
 
 // Mock dependencies at module level
 vi.mock("@vercel/edge-config", () => ({
@@ -256,6 +255,18 @@ describe("Middleware Integration Tests", () => {
       expect(getHeader(res, "location")).toContain(returnUrl);
     });
 
+    it("should handle return-to cookie redirect for /apps/installed subpaths (e.g. after OAuth)", async () => {
+      const returnUrl = `${WEBAPP_URL}/onboarding/personal/calendar`;
+      const req = createTestRequest({
+        url: `${WEBAPP_URL}/apps/installed/calendar?hl=google-calendar`,
+        cookies: { "return-to": returnUrl },
+      });
+
+      const res = await callProxy(req);
+      expectStatus(res, 307);
+      expect(getHeader(res, "location")).toContain("/onboarding/personal/calendar");
+    });
+
     it("should not redirect without return-to cookie", async () => {
       const req = createTestRequest({
         url: `${WEBAPP_URL}/apps/installed`,
@@ -460,7 +471,7 @@ describe("Middleware Matcher Configuration", () => {
     expect(matcher).toContain("/auth/login");
     expect(matcher).toContain("/auth/logout");
     expect(matcher).toContain("/api/auth/signup");
-    expect(matcher).toContain("/apps/installed");
+    expect(matcher).toContain("/apps/installed/:path*");
     expect(matcher).toContain("/availability");
     expect(matcher).toContain("/login");
     expect(matcher).toContain("/:path*/embed");
@@ -480,7 +491,7 @@ describe("Middleware Matcher Configuration", () => {
     expect(matcher).toEqual([
       "/auth/login",
       "/login",
-      "/apps/installed",
+      "/apps/installed/:path*",
       "/auth/logout",
       "/:path*/embed",
       "/availability",
