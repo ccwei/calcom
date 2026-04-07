@@ -132,12 +132,24 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             NEXT_PUBLIC_WEBAPP_URL=${{ env.NEXT_PUBLIC_WEBAPP_URL }}
-            NEXT_PUBLIC_API_V2_URL=${{ env.NEXT_PUBLIC_API_V2_URL }}
             NEXT_PUBLIC_LICENSE_CONSENT=${{ env.NEXT_PUBLIC_LICENSE_CONSENT }}
-            NEXT_PUBLIC_TELEMETRY_KEY=${{ env.NEXT_PUBLIC_TELEMETRY_KEY }}
-            NEXT_PUBLIC_SENTRY_DSN=${{ env.NEXT_PUBLIC_SENTRY_DSN }}
+            NEXT_PUBLIC_WEBSITE_TERMS_URL=${{ env.NEXT_PUBLIC_WEBSITE_TERMS_URL }}
+            NEXT_PUBLIC_WEBSITE_PRIVACY_POLICY_URL=${{ env.NEXT_PUBLIC_WEBSITE_PRIVACY_POLICY_URL }}
+            CALCOM_TELEMETRY_DISABLED=${{ env.CALCOM_TELEMETRY_DISABLED }}
             DATABASE_URL=postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.DATABASE_HOST }}/${{ env.POSTGRES_DB }}
-            DATABASE_DIRECT_URL=postgresql://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@${{ env.DATABASE_HOST }}/${{ env.POSTGRES_DB }}
+            NEXTAUTH_SECRET=${{ env.NEXTAUTH_SECRET || 'secret' }}
+            CALENDSO_ENCRYPTION_KEY=${{ env.CALENDSO_ENCRYPTION_KEY || 'secret' }}
+            MAX_OLD_SPACE_SIZE=${{ env.MAX_OLD_SPACE_SIZE || '6144' }}
+            NEXT_PUBLIC_API_V2_URL=${{ env.NEXT_PUBLIC_API_V2_URL }}
+            NEXT_PUBLIC_SENTRY_DSN=${{ env.NEXT_PUBLIC_SENTRY_DSN }}
+            NEXT_PUBLIC_SENTRY_DSN_CLIENT=${{ env.NEXT_PUBLIC_SENTRY_DSN_CLIENT }}
+            CSP_POLICY=${{ env.CSP_POLICY }}
+            NEXT_PUBLIC_DISABLE_SIGNUP=${{ env.NEXT_PUBLIC_DISABLE_SIGNUP }}
+            NEXT_PUBLIC_SINGLE_ORG_SLUG=${{ env.NEXT_PUBLIC_SINGLE_ORG_SLUG }}
+            ORGANIZATIONS_ENABLED=${{ env.ORGANIZATIONS_ENABLED }}
+            NEXT_PUBLIC_APP_NAME=${{ env.NEXT_PUBLIC_APP_NAME }}
+            NEXT_PUBLIC_SUPPORT_MAIL_ADDRESS=${{ env.NEXT_PUBLIC_SUPPORT_MAIL_ADDRESS }}
+            NEXT_PUBLIC_COMPANY_NAME=${{ env.NEXT_PUBLIC_COMPANY_NAME }}
 
       - name: Configure Docker Authentication
         run: gcloud auth configure-docker asia-east1-docker.pkg.dev
