@@ -7,7 +7,10 @@ import {
   WEBAPP_URL,
   WEBSITE_URL,
 } from "@calcom/lib/constants";
-import { formatToLocalizedDate, formatToLocalizedTime } from "@calcom/lib/dayjs";
+import {
+  formatToLocalizedDate,
+  formatToLocalizedTime,
+} from "@calcom/lib/dayjs";
 import { emailRegex } from "@calcom/lib/emailSchema";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { markdownToSafeHTML } from "@calcom/lib/markdownToSafeHTML";
@@ -54,10 +57,14 @@ export default function JoinCall(props: PageProps) {
 
   const userNameForCall = overrideName ?? loggedInUserName ?? undefined;
   const hideLoginModal =
-    !!userNameForCall && (requireEmailForGuests ? !!loggedInUserName && isLoggedInUserPartOfMeeting : true);
+    !!userNameForCall &&
+    (requireEmailForGuests
+      ? !!loggedInUserName && isLoggedInUserPartOfMeeting
+      : true);
   const [isCallFrameReady, setIsCallFrameReady] = useState<boolean>(false);
 
-  const activeMeetingPassword = guestCredentials?.meetingPassword ?? meetingPassword;
+  const activeMeetingPassword =
+    guestCredentials?.meetingPassword ?? meetingPassword;
   const activeMeetingUrl = guestCredentials?.meetingUrl ?? meetingUrl;
   const activeUserName = guestCredentials?.userName ?? userNameForCall;
 
@@ -89,7 +96,9 @@ export default function JoinCall(props: PageProps) {
           },
           url: url ?? meetingUrl,
           userName: userName,
-          ...(typeof (password ?? meetingPassword) === "string" && { token: password ?? meetingPassword }),
+          ...(typeof (password ?? meetingPassword) === "string" && {
+            token: password ?? meetingPassword,
+          }),
           ...(hasTeamPlan && {
             customTrayButtons: {
               ...(showRecordingButton
@@ -125,7 +134,14 @@ export default function JoinCall(props: PageProps) {
         return DailyIframe.getCallInstance();
       }
     },
-    [meetingUrl, meetingPassword, hasTeamPlan, showRecordingButton, showTranscriptionButton, t]
+    [
+      meetingUrl,
+      meetingPassword,
+      hasTeamPlan,
+      showRecordingButton,
+      showTranscriptionButton,
+      t,
+    ]
   );
   useEffect(() => {
     if (!hideLoginModal && !guestCredentials) {
@@ -135,7 +151,12 @@ export default function JoinCall(props: PageProps) {
     let callFrame: DailyCall | null = null;
 
     try {
-      callFrame = createCallFrame(activeUserName, activeMeetingPassword, activeMeetingUrl) ?? null;
+      callFrame =
+        createCallFrame(
+          activeUserName,
+          activeMeetingPassword,
+          activeMeetingUrl
+        ) ?? null;
       setDaily(callFrame);
       setIsCallFrameReady(true);
 
@@ -169,10 +190,19 @@ export default function JoinCall(props: PageProps) {
       {isCallFrameReady && (
         <div
           className="mx-auto hidden sm:block"
-          style={{ zIndex: 2, left: "30%", position: "absolute", bottom: 100, width: "auto" }}>
+          style={{
+            zIndex: 2,
+            left: "30%",
+            position: "absolute",
+            bottom: 100,
+            width: "auto",
+          }}
+        >
           <CalVideoPremiumFeatures
             showRecordingButton={showRecordingButton}
-            enableAutomaticRecordingForOrganizer={enableAutomaticRecordingForOrganizer}
+            enableAutomaticRecordingForOrganizer={
+              enableAutomaticRecordingForOrganizer
+            }
             enableAutomaticTranscription={enableAutomaticTranscription}
             showTranscriptionButton={showTranscriptionButton}
           />
@@ -192,7 +222,7 @@ export default function JoinCall(props: PageProps) {
         ) : (
           <img
             className="fixed z-10 hidden h-5 sm:inline-block"
-            src={`${WEBSITE_URL}/cal-logo-word-dark.svg`}
+            src={`${WEBSITE_URL}/dadacal-icon.svg`}
             alt="Logo"
             style={{
               top: 47,
@@ -216,7 +246,10 @@ export default function JoinCall(props: PageProps) {
         />
       )}
 
-      <VideoMeetingInfo booking={booking} rediectAttendeeToOnExit={rediectAttendeeToOnExit} />
+      <VideoMeetingInfo
+        booking={booking}
+        rediectAttendeeToOnExit={rediectAttendeeToOnExit}
+      />
     </DailyProvider>
   );
 }
@@ -247,7 +280,8 @@ function ProgressBar(props: ProgressBarProps) {
 
   useEffect(() => {
     const now = dayjs();
-    const remainingMilliseconds = (60 - now.get("seconds")) * 1000 - now.get("milliseconds");
+    const remainingMilliseconds =
+      (60 - now.get("seconds")) * 1000 - now.get("milliseconds");
 
     timeoutRef.current = setTimeout(() => {
       const past = dayjs().isAfter(startingTime);
@@ -284,7 +318,10 @@ function ProgressBar(props: ProgressBarProps) {
       </p>
       <div className="relative h-2 max-w-xl overflow-hidden rounded-full">
         <div className="absolute h-full w-full bg-gray-500/10" />
-        <div className={classNames("relative h-full bg-green-500")} style={{ width: `${percentage}%` }} />
+        <div
+          className={classNames("relative h-full bg-green-500")}
+          style={{ width: `${percentage}%` }}
+        />
       </div>
     </div>
   );
@@ -323,7 +360,9 @@ export function LogInOverlay(props: LogInOverlayProps) {
   } = props;
 
   const [isOpen, setIsOpen] = useState(_open);
-  const [userName, setUserName] = useState(overrideName ?? loggedInUserName ?? "");
+  const [userName, setUserName] = useState(
+    overrideName ?? loggedInUserName ?? ""
+  );
   const [userEmail, setUserEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -399,7 +438,8 @@ export function LogInOverlay(props: LogInOverlayProps) {
         setIsOpen(false);
       }
     } catch (error) {
-      const errorKey = error instanceof Error ? error.message : "failed_to_join_call";
+      const errorKey =
+        error instanceof Error ? error.message : "failed_to_join_call";
       const errorMessage = t(errorKey) || errorKey;
       setError(errorMessage);
       setIsLoading(false);
@@ -446,7 +486,10 @@ export function LogInOverlay(props: LogInOverlayProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="p-6 sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent
+        className="p-6 sm:max-w-md"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <div className="flex flex-col gap-5">
           <div className="flex items-center justify-between rounded-lg border border-subtle p-3">
             <div className="flex items-center gap-3">
@@ -454,8 +497,12 @@ export function LogInOverlay(props: LogInOverlayProps) {
                 <CalendarDaysIcon className="h-5 w-5 text-default" />
               </div>
               <div>
-                <p className="font-semibold text-emphasis text-sm">{bookingTitle}</p>
-                <p className="text-subtle text-xs">{t("hosted_by", { name: hostName })}</p>
+                <p className="font-semibold text-emphasis text-sm">
+                  {bookingTitle}
+                </p>
+                <p className="text-subtle text-xs">
+                  {t("hosted_by", { name: hostName })}
+                </p>
               </div>
             </div>
             <Badge variant="success" withDot>
@@ -464,8 +511,12 @@ export function LogInOverlay(props: LogInOverlayProps) {
           </div>
 
           <div>
-            <h3 className="font-bold text-emphasis text-lg">{t("ready_to_join")}</h3>
-            <p className="text-sm text-subtle">{t("enter_name_to_join_call")}</p>
+            <h3 className="font-bold text-emphasis text-lg">
+              {t("ready_to_join")}
+            </h3>
+            <p className="text-sm text-subtle">
+              {t("enter_name_to_join_call")}
+            </p>
           </div>
 
           <div className="flex flex-col gap-3">
@@ -496,7 +547,8 @@ export function LogInOverlay(props: LogInOverlayProps) {
               color="primary"
               className="w-full justify-center"
               onClick={handleContinueAsGuest}
-              loading={isLoading}>
+              loading={isLoading}
+            >
               {t("join_call_as_guest")}
             </Button>
           </div>
@@ -510,7 +562,8 @@ export function LogInOverlay(props: LogInOverlayProps) {
           <p className="text-center text-sm text-subtle">
             <a
               href={`${WEBAPP_URL}/auth/login?callbackUrl=${WEBAPP_URL}/video/${bookingUid}`}
-              className="text-emphasis underline">
+              className="text-emphasis underline"
+            >
               {t("sign_in")}
             </a>{" "}
             {t("to_track_no_shows")}
@@ -546,7 +599,8 @@ export function VideoMeetingInfo(props: VideoMeetingInfo) {
       className={classNames(
         "no-scrollbar fixed top-0 left-0 z-30 flex h-full w-64 transform justify-between overflow-x-hidden overflow-y-scroll transition-all duration-300 ease-in-out",
         open ? "translate-x-0" : "-translate-x-[232px]"
-      )}>
+      )}
+    >
       <main className="prose-sm prose scroll-bar scrollbar-track-w-20 overflow-x-hidden! w-full max-w-64 overflow-scroll border-subtle border-r bg-default p-4 prose-h3:font-cal prose-a:text-emphasis prose-h3:text-emphasis text-emphasis shadow-sm backdrop-blur-lg">
         <h3>{t("what")}:</h3>
         <p>{booking.title}</p>
@@ -558,14 +612,21 @@ export function VideoMeetingInfo(props: VideoMeetingInfo) {
           {formatToLocalizedTime({ date: startTime, timeZone })}
         </p>
         <h3>{t("time_left")}</h3>
-        <ProgressBar key={String(open)} endTime={endTime.toISOString()} startTime={startTime.toISOString()} />
+        <ProgressBar
+          key={String(open)}
+          endTime={endTime.toISOString()}
+          startTime={startTime.toISOString()}
+        />
 
         <h3>{t("who")}:</h3>
         <p>
           {booking?.user?.name} - {t("organizer")}
           {!booking?.eventType?.hideOrganizerEmail && (
             <>
-              : <a href={`mailto:${booking?.user?.email}`}>{booking?.user?.email}</a>
+              :{" "}
+              <a href={`mailto:${booking?.user?.email}`}>
+                {booking?.user?.email}
+              </a>
             </>
           )}
         </p>
@@ -573,7 +634,8 @@ export function VideoMeetingInfo(props: VideoMeetingInfo) {
         {booking.attendees.length
           ? booking.attendees.map((attendee) => (
               <p key={attendee.id}>
-                {attendee.name} – <a href={`mailto:${attendee.email}`}>{attendee.email}</a>
+                {attendee.name} –{" "}
+                <a href={`mailto:${attendee.email}`}>{attendee.email}</a>
               </p>
             ))
           : null}
@@ -585,7 +647,9 @@ export function VideoMeetingInfo(props: VideoMeetingInfo) {
             {/* biome-ignore lint/security/noDangerouslySetInnerHtml: Content is sanitized via markdownToSafeHTML */}
             <div
               className="prose-sm prose prose-invert"
-              dangerouslySetInnerHTML={{ __html: markdownToSafeHTML(booking.description) }}
+              dangerouslySetInnerHTML={{
+                __html: markdownToSafeHTML(booking.description),
+              }}
             />
           </>
         )}
@@ -594,10 +658,14 @@ export function VideoMeetingInfo(props: VideoMeetingInfo) {
         <button
           aria-label={`${open ? "close" : "open"} booking description sidebar`}
           className="h-20 w-6 rounded-r-md border border-gray-300/20 border-l-0 bg-black/60 text-white shadow-sm backdrop-blur-lg"
-          onClick={() => setOpen(!open)}>
+          onClick={() => setOpen(!open)}
+        >
           <ChevronRightIcon
             aria-hidden
-            className={classNames(open && "rotate-180", "w-5 transition-all duration-300 ease-in-out")}
+            className={classNames(
+              open && "rotate-180",
+              "w-5 transition-all duration-300 ease-in-out"
+            )}
           />
         </button>
       </div>
