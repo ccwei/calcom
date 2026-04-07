@@ -419,7 +419,7 @@ model User {
   travelSchedules     TravelSchedule[]
   weekStart           String               @default("Sunday")
   bufferTime          Int                  @default(0)
-  hideBranding        Boolean              @default(false)
+  hideBranding        Boolean              @default(true)
   // TODO: should be renamed since it only affects the booking page
   theme               String?
   appTheme            String?
