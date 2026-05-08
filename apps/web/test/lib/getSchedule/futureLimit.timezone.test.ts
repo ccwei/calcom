@@ -1,16 +1,13 @@
+import type { ScenarioData } from "@calcom/testing/lib/bookingScenario/bookingScenario";
 import {
   createBookingScenario,
   replaceDates,
   TestData,
   Timezones,
 } from "@calcom/testing/lib/bookingScenario/bookingScenario";
-import type { ScenarioData } from "@calcom/testing/lib/bookingScenario/bookingScenario";
-
-import { describe, expect, vi, test } from "vitest";
-
 import { getAvailableSlotsService } from "@calcom/features/di/containers/AvailableSlots";
 import { PeriodType } from "@calcom/prisma/enums";
-
+import { describe, expect, test, vi } from "vitest";
 import { expectedSlotsForSchedule } from "./expects";
 import { setupAndTeardown } from "./setupAndTeardown";
 
@@ -67,6 +64,7 @@ vi.mock("@calcom/lib/constants", () => ({
   RESERVED_SUBDOMAINS: ["auth", "docs"],
   ROLLING_WINDOW_PERIOD_MAX_DAYS_TO_CHECK: 61,
   SINGLE_ORG_SLUG: "",
+  MINUTES_TO_BOOK: "10",
 }));
 
 describe("getSchedule", () => {

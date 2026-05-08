@@ -1246,9 +1246,12 @@ describe("getSchedule", () => {
 
       expect(scheduleForEventWithBookingNotice13Hrs).toHaveTimeSlots(
         [
-          /*`03:30:00.000Z`, `05:30:00.000Z`, - Minimum time slot is 07:30 UTC which is 13hrs from 18:30*/
-          `07:30:00.000Z`,
-          `09:30:00.000Z`,
+          /*
+           * `03:30:00.000Z`, `05:30:00.000Z`, `07:30:00.000Z` - 07:30 was the strict 13h boundary (18:30 + 13h),
+           * but the MINUTES_TO_BOOK booking-flow buffer pushes the threshold past 07:30, so the next aligned slot is 08:30.
+           */
+          `08:30:00.000Z`,
+          `10:30:00.000Z`,
         ],
         {
           dateString: todayDateString,
@@ -1268,11 +1271,14 @@ describe("getSchedule", () => {
       });
       expect(scheduleForEventWithBookingNotice10Hrs).toHaveTimeSlots(
         [
-          /*`03:30:00.000Z`, - Minimum bookable time slot is 04:30 UTC which is 10hrs from 18:30 */
-          `04:30:00.000Z`,
-          `06:30:00.000Z`,
-          `08:30:00.000Z`,
-          `10:30:00.000Z`,
+          /*
+           * `03:30:00.000Z` - 04:30 was the strict 10h boundary; the booking-flow buffer pushes past it
+           * so the next aligned slot is 05:30.
+           */
+          `05:30:00.000Z`,
+          `07:30:00.000Z`,
+          `09:30:00.000Z`,
+          `11:30:00.000Z`,
         ],
         {
           dateString: todayDateString,

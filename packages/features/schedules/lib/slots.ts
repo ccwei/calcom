@@ -1,3 +1,4 @@
+import process from "node:process";
 import type { Dayjs } from "@calcom/dayjs";
 import dayjs from "@calcom/dayjs";
 import type {
@@ -6,6 +7,7 @@ import type {
   IToUser,
 } from "@calcom/features/availability/lib/getUserAvailability";
 import type { DateRange } from "@calcom/features/schedules/lib/date-ranges";
+import { MINUTES_TO_BOOK } from "@calcom/lib/constants";
 import { getTimeZone } from "@calcom/lib/dayjs";
 import { withReporting } from "@calcom/lib/sentryWrapper";
 
@@ -120,7 +122,14 @@ function buildSlotsWithDateRanges({
     }
   }
 
-  const startTimeWithMinNotice = dayjs.utc().add(minimumBookingNotice, "minute");
+  // Add MINUTES_TO_BOOK as a buffer so the slot stays valid throughout the booking flow.
+  // Otherwise a slot that just clears `minimumBookingNotice` at display time can be
+  // rejected by `validateBookingTimeIsNotOutOfBounds` after the booker fills out forms or pays.
+  const bookingFlowBufferMinutes = parseInt(MINUTES_TO_BOOK);
+  const startTimeWithMinNotice = dayjs
+    .utc()
+    .add(minimumBookingNotice, "minute")
+    .add(bookingFlowBufferMinutes, "minute");
 
   const slotBoundaries = new Map<number, true>();
 
@@ -184,7 +193,7 @@ function buildSlotsWithDateRanges({
 
       slotBoundaries.set(slotStartTime.valueOf(), true);
 
-      let dateOutOfOfficeExists = undefined;
+      let dateOutOfOfficeExists;
       if (datesOutOfOffice) {
         const slotDateYYYYMMDD = datesOutOfOfficeTimeZone
           ? slotStartTime.tz(datesOutOfOfficeTimeZone).format("YYYY-MM-DD")

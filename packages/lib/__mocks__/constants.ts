@@ -1,6 +1,5 @@
-import { vi, beforeEach } from "vitest";
-
 import type * as constants from "@calcom/lib/constants";
+import { beforeEach, vi } from "vitest";
 
 const initialConstants = {
   IS_PRODUCTION: false,
@@ -16,11 +15,12 @@ const initialConstants = {
   SEO_IMG_DEFAULT: "https://cal.com/og-image.png",
   SEO_IMG_OGIMG: "https://cal.com/og-image-wide.png",
   CURRENT_TIMEZONE: "Europe/London",
-  APP_NAME: "Cal.com",
+  APP_NAME: "DadaCal",
   BOOKER_NUMBER_OF_DAYS_TO_LOAD: 14,
   PUBLIC_QUICK_AVAILABILITY_ROLLOUT: 100,
   SINGLE_ORG_SLUG: "",
   DEFAULT_GROUP_ID: "default_group_id",
+  MINUTES_TO_BOOK: "10",
 } as Partial<typeof constants>;
 
 export const mockedConstants = { ...initialConstants };

@@ -47,8 +47,8 @@ describe("Tests the slot logic", () => {
   });
 
   it("only shows future booking slots on the same day", async () => {
-    // The mock date is 1s to midday, so 12 slots should be open given 0 booking notice.
-
+    // The mock date is 1s to midday. With the MINUTES_TO_BOOK booking-flow buffer (5min),
+    // the first available slot is 13:00 instead of 12:00, so 11 slots remain (13:00–23:00).
     expect(
       getSlots({
         inviteeDate: dayjs.utc(),
@@ -58,11 +58,12 @@ describe("Tests the slot logic", () => {
         eventLength: 60,
         offsetStart: 0,
       })
-    ).toHaveLength(12);
+    ).toHaveLength(11);
   });
 
   it("adds minimum booking notice correctly", async () => {
-    // 24h in a day.
+    // 1500min notice + 5min booking-flow buffer pushes the first slot from 13:00 to 14:00,
+    // leaving 10 slots in the day (14:00–23:00).
     expect(
       getSlots({
         inviteeDate: dayjs.utc().add(1, "day").startOf("day"),
@@ -72,7 +73,7 @@ describe("Tests the slot logic", () => {
         eventLength: 60,
         offsetStart: 0,
       })
-    ).toHaveLength(11);
+    ).toHaveLength(10);
   });
 
   it("shows correct time slots for 20 minutes long events with working hours that do not end at a full hour ", async () => {
@@ -1153,9 +1154,9 @@ describe("Tests 40-minute duration slot generation", () => {
       offsetStart: 0,
     });
 
-    // System time is ~12:00, so only slots from 12:00 onwards should be available
-    // From 12:00 to 24:00 = 12 hours = 720 minutes, 720 / 40 = 18 slots
-    expect(slots).toHaveLength(18);
+    // System time is ~12:00. With the 5-min booking-flow buffer the first slot starts after
+    // 12:04:59 and rounds up to the next 40-min boundary, giving 17 slots through 23:20.
+    expect(slots).toHaveLength(17);
   });
 
   it("handles 40-minute slots across multiple date ranges", async () => {
