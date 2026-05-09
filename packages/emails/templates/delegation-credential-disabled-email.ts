@@ -1,6 +1,4 @@
-import { EMAIL_FROM_NAME } from "@calcom/lib/constants";
-import { WEBAPP_URL } from "@calcom/lib/constants";
-
+import { EMAIL_FROM_NAME, WEBAPP_URL } from "@calcom/lib/constants";
 import BaseEmail from "./_base-email";
 
 export default class DelegationCredentialDisabledEmail extends BaseEmail {
@@ -64,13 +62,13 @@ export default class DelegationCredentialDisabledEmail extends BaseEmail {
           }, you can ignore this message.
         </p>
         <p>
-          Thank you,<br />The Cal.com Team
+          Thank you,<br />The DadaCal Team
         </p>
       </div>
     `;
   }
 
   protected getTextBody(): string {
-    return `Action Required: Connect your ${this.calendarAppName}\n\nAn admin has disabled Delegation Credential for your organization. You may need to connect your ${this.calendarAppName} manually to continue receiving bookings and updates, and to allow Cal.com to check for conflicts to prevent double bookings and automatically add new events to your schedule.\n\nPlease log in to your Cal.com account and connect your calendar from your settings page by visiting: ${WEBAPP_URL}/settings/my-account/calendars.\n\nAdditionally, please ensure you have the ${this.conferencingAppName} app installed. You can manage your conferencing apps here: ${WEBAPP_URL}/settings/my-account/conferencing.\n\nIf you have already connected your calendar and installed ${this.conferencingAppName}, you can ignore this message.\n\nThank you,\nThe Cal.com Team`;
+    return `Action Required: Connect your ${this.calendarAppName}\n\nAn admin has disabled Delegation Credential for your organization. You may need to connect your ${this.calendarAppName} manually to continue receiving bookings and updates, and to allow Cal.com to check for conflicts to prevent double bookings and automatically add new events to your schedule.\n\nPlease log in to your Cal.com account and connect your calendar from your settings page by visiting: ${WEBAPP_URL}/settings/my-account/calendars.\n\nAdditionally, please ensure you have the ${this.conferencingAppName} app installed. You can manage your conferencing apps here: ${WEBAPP_URL}/settings/my-account/conferencing.\n\nIf you have already connected your calendar and installed ${this.conferencingAppName}, you can ignore this message.\n\nThank you,\nThe DadaCal Team`;
   }
 }
