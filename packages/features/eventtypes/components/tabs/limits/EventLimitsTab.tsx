@@ -19,6 +19,10 @@ import {
   intervalLimitKeyToUnit,
 } from "@calcom/lib/intervalLimits/intervalLimit";
 import type { IntervalLimit } from "@calcom/lib/intervalLimits/intervalLimitSchema";
+import {
+  localCalendarDateToUtcDateOnly,
+  utcDateOnlyToLocalCalendarDate,
+} from "@calcom/lib/periodDateRange";
 import { PeriodType, SchedulingType } from "@calcom/prisma/enums";
 import classNames from "@calcom/ui/classNames";
 import { Badge } from "@calcom/ui/components/badge";
@@ -129,13 +133,11 @@ type RangeLimitCustomClassNames = {
 
 function RangeLimitRadioItem({
   isDisabled,
-  formMethods,
   radioValue,
   customClassNames,
 }: {
   radioValue: string;
   isDisabled: boolean;
-  formMethods: UseFormReturn<FormValues>;
   customClassNames?: RangeLimitCustomClassNames;
 }) {
   const { t } = useLocale();
@@ -167,30 +169,27 @@ function RangeLimitRadioItem({
         >
           <Controller
             name="periodDates"
-            render={({ field: { onChange } }) => (
+            render={({ field: { onChange, value } }) => (
               <DateRangePicker
                 dates={{
-                  startDate: formMethods.getValues("periodDates").startDate,
-                  endDate: formMethods.getValues("periodDates").endDate,
+                  // UTC midnight date-only values must be shown as local calendar days,
+                  // otherwise west-of-UTC zones render/select the previous day.
+                  startDate: value?.startDate
+                    ? utcDateOnlyToLocalCalendarDate(value.startDate)
+                    : undefined,
+                  endDate: value?.endDate
+                    ? utcDateOnlyToLocalCalendarDate(value.endDate)
+                    : undefined,
                 }}
                 disabled={isDisabled}
                 onDatesChange={({ startDate, endDate }) => {
-                  const toUTCMidnight = (
-                    date: Date | undefined
-                  ): Date | undefined => {
-                    if (!date) return undefined;
-                    return new Date(
-                      Date.UTC(
-                        date.getFullYear(),
-                        date.getMonth(),
-                        date.getDate()
-                      )
-                    );
-                  };
-
                   onChange({
-                    startDate: toUTCMidnight(startDate),
-                    endDate: toUTCMidnight(endDate),
+                    startDate: startDate
+                      ? localCalendarDateToUtcDateOnly(startDate)
+                      : undefined,
+                    endDate: endDate
+                      ? localCalendarDateToUtcDateOnly(endDate)
+                      : undefined,
                   });
                 }}
                 className={customClassNames?.datePicker}
@@ -912,7 +911,6 @@ export const EventLimitsTab = ({
                         customClassNames?.futureBookingLimit?.rangeLimit
                       }
                       isDisabled={periodTypeLocked.disabled}
-                      formMethods={formMethods}
                     />
                   )}
                 </RadioGroup.Root>
