@@ -434,7 +434,7 @@ export const getLocationValueForDB = (
   });
 
   if (bookingLocation.trim().length === 0) {
-    bookingLocation = DailyLocationType;
+    bookingLocation = MeetLocationType;
   }
 
   return { bookingLocation, conferenceCredentialId };

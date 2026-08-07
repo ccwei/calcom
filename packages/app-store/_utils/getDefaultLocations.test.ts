@@ -4,7 +4,7 @@ import { getGoogleMeetCredential, TestData } from "@calcom/testing/lib/bookingSc
 
 import { describe, expect, it } from "vitest";
 
-import { DailyLocationType, MeetLocationType } from "../locations";
+import { MeetLocationType } from "../locations";
 import { getDefaultLocations } from "./getDefaultLocations";
 
 type User = {
@@ -30,7 +30,7 @@ type User = {
   ];
 };
 describe("getDefaultLocation ", async () => {
-  it("should return location based on user default conferencing app", async () => {
+  it("should return Google Meet when that is the user's default conferencing app", async () => {
     const user: User = {
       id: 101,
       email: "test@example.com",
@@ -46,28 +46,20 @@ describe("getDefaultLocation ", async () => {
     await addAppsToDb([TestData.apps["google-meet"]]);
     const res = await getDefaultLocations(user);
     expect(res[0]).toEqual({
-      link: "https://example.com",
       type: MeetLocationType,
     });
   });
-  it("should return calvideo when default conferencing app is not set", async () => {
+  it("should return Google Meet when default conferencing app is not set", async () => {
     const user: User = {
       id: 101,
       email: "test@example.com",
       metadata: {},
     };
     await mockUser(user);
-    await addAppsToDb([TestData.apps["daily-video"]]);
-    await prismaMock.app.create({
-      data: {
-        ...TestData.apps["daily-video"],
-        enabled: true,
-      },
-    });
     const res = await getDefaultLocations(user);
     expect(res[0]).toEqual(
       expect.objectContaining({
-        type: DailyLocationType,
+        type: MeetLocationType,
       })
     );
   });

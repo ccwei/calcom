@@ -15,7 +15,8 @@ export const metadata = {
   category: "conferencing",
   slug: "daily-video",
   title: "Cal Video",
-  isGlobal: true,
+  // Keep false so Cal Video is not auto-injected into location selectors.
+  isGlobal: false,
   email: "help@cal.com",
   appData: {
     location: {

@@ -80,7 +80,7 @@ export const AppList = ({
     const appSlug = item?.slug;
     const appIsDefault =
       appSlug === defaultConferencingApp?.appSlug ||
-      (appSlug === "daily-video" && !defaultConferencingApp?.appSlug);
+      (appSlug === "google-meet" && !defaultConferencingApp?.appSlug);
     return (
       <AppListCardComponent
         key={item.name}
