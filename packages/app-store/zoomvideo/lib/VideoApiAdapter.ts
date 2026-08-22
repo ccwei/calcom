@@ -31,8 +31,30 @@ const log = logger.getSubLogger({ prefix: ["app-store/zoomvideo/lib/VideoApiAdap
 const zoomEventResultSchema = z.object({
   id: z.number(),
   join_url: z.string(),
-  password: z.string().optional().default(""),
+  // Zoom may omit password or return null depending on account security settings
+  password: z.string().nullish(),
 });
+
+const zoomErrorResponseSchema = z.object({
+  code: z.number(),
+  message: z.string().optional(),
+});
+
+function assertZoomSuccessResponse(response: unknown, action: string) {
+  // Successful PATCH returns 204 with an empty body → OAuthManager yields null
+  if (response == null) {
+    return;
+  }
+
+  const error = zoomErrorResponseSchema.safeParse(response);
+  if (error.success) {
+    throw new Error(
+      `Zoom ${action} failed with code ${error.data.code}${
+        error.data.message ? `: ${error.data.message}` : ""
+      }`
+    );
+  }
+}
 
 export type ZoomEventResult = z.infer<typeof zoomEventResultSchema>;
 
@@ -548,23 +570,55 @@ const ZoomVideoApiAdapter = (credential: CredentialPayload): VideoApiAdapter => 
     },
     updateMeeting: async (bookingRef: PartialReference, event: CalendarEvent): Promise<VideoCallData> => {
       try {
-        await fetchZoomApi(`meetings/${bookingRef.uid}`, {
+        // Reschedule should not rotate the meeting password. Re-sending password on PATCH is a
+        // common source of Zoom validation errors (including non-JSON/XML error bodies), which
+        // previously caused a false "broken video integration" email even when the time update
+        // succeeded.
+        const { password: _password, ...updatePayload } = await translateEvent(event);
+
+        const patchResponse = await fetchZoomApi(`meetings/${bookingRef.uid}`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(await translateEvent(event)),
+          body: JSON.stringify(updatePayload),
         });
+        assertZoomSuccessResponse(patchResponse, "updateMeeting");
 
-        const updatedMeeting = await fetchZoomApi(`meetings/${bookingRef.uid}`);
-        const result = zoomEventResultSchema.parse(updatedMeeting);
+        // Zoom PATCH returns 204 with no body. Refetch for latest join details, but if that
+        // fails after a successful update, fall back to the existing booking reference so we
+        // don't treat a successful reschedule as a broken integration.
+        try {
+          const updatedMeeting = await fetchZoomApi(`meetings/${bookingRef.uid}`);
+          const result = zoomEventResultSchema.parse(updatedMeeting);
 
-        return {
-          type: "zoom_video",
-          id: result.id.toString(),
-          password: result.password || "",
-          url: result.join_url,
-        };
+          return {
+            type: "zoom_video",
+            id: result.id.toString(),
+            password: result.password || "",
+            url: result.join_url,
+          };
+        } catch (refetchError) {
+          log.warn(
+            "Zoom meeting was updated but refetch/parse failed; falling back to booking reference",
+            safeStringify({
+              error: refetchError,
+              bookingRefUid: bookingRef.uid,
+              event: getPiiFreeCalendarEvent(event),
+            })
+          );
+
+          if (bookingRef.meetingUrl) {
+            return {
+              type: "zoom_video",
+              id: (bookingRef.meetingId ?? bookingRef.uid).toString(),
+              password: bookingRef.meetingPassword || "",
+              url: bookingRef.meetingUrl,
+            };
+          }
+
+          throw refetchError;
+        }
       } catch (err) {
         log.error(
           "Failed to update meeting",
