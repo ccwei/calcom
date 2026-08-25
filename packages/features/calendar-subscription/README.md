@@ -27,10 +27,10 @@ By subscribing to calendars via webhooks and implementing intelligent caching, y
 
 ## Feature Flags
 
-This feature is controlled by three feature flags that can be enabled independently:
+This feature is controlled by two **global** feature flags:
 
 ### 1. calendar-subscription-cache  
-Enables calendar cache recording and usage through calendars. This flag should be managed individually by teams.
+Enables calendar cache recording and usage for all users when globally enabled.
 
 ```sql
 INSERT INTO "Feature" ("slug", "enabled", "description", "type", "stale", "lastUsedAt", "createdAt", "updatedAt", "updatedBy") 
@@ -39,7 +39,7 @@ ON CONFLICT (slug) DO NOTHING;
 ```
 
 ### 2. calendar-subscription-sync
-Enables calendar sync globally for all users regardless of team or organization.
+Enables calendar sync globally for all users.
 
 ```sql
 INSERT INTO "Feature" ("slug", "enabled", "description", "type", "stale", "lastUsedAt", "createdAt", "updatedAt", "updatedBy") 
@@ -47,37 +47,15 @@ VALUES ('calendar-subscription-sync', false, 'Enable calendar sync for all calen
 ON CONFLICT (slug) DO NOTHING;
 ```
 
-## Enabling Features for Specific Users
-
-To enable calendar cache features for specific users, add entries to the `UserFeatures` table:
+Enable a flag:
 
 ```sql
--- Enable calendar-subscription-cache for user ID 123  
-INSERT INTO "UserFeatures" ("userId", "featureId", "assignedAt", "assignedBy", "updatedAt") 
-VALUES (123, 'calendar-subscription-cache', NOW(), 'admin', NOW()) 
-ON CONFLICT ("userId", "featureId") DO NOTHING;
-
--- Enable calendar-subscription-sync for user ID 123
-INSERT INTO "UserFeatures" ("userId", "featureId", "assignedAt", "assignedBy", "updatedAt") 
-VALUES (123, 'calendar-subscription-sync', NOW(), 'admin', NOW()) 
-ON CONFLICT ("userId", "featureId") DO NOTHING;
+UPDATE "Feature" SET "enabled" = true WHERE "slug" = 'calendar-subscription-cache';
+-- or
+UPDATE "Feature" SET "enabled" = true WHERE "slug" = 'calendar-subscription-sync';
 ```
 
-## Enabling Features for Specific Teams
-
-To enable calendar cache features for specific teams, add entries to the `TeamFeatures` table:
-
-```sql
--- Enable calendar-subscription-cache for team ID 456
-INSERT INTO "TeamFeatures" ("teamId", "featureId", "assignedAt", "assignedBy", "updatedAt") 
-VALUES (456, 'calendar-subscription-cache', NOW(), 'admin', NOW()) 
-ON CONFLICT ("teamId", "featureId") DO NOTHING;
-
--- Enable calendar-subscription-sync for team ID 456
-INSERT INTO "TeamFeatures" ("teamId", "featureId", "assignedAt", "assignedBy", "updatedAt") 
-VALUES (456, 'calendar-subscription-sync', NOW(), 'admin', NOW()) 
-ON CONFLICT ("teamId", "featureId") DO NOTHING;
-```
+Dadacal uses **global flags only** — no team or per-user feature assignment is required. When a flag is ON, all users with connected Google calendars are included.
 
 ## Architecture
 
@@ -113,3 +91,4 @@ The calendar cache and sync system consists of several key components:
 
 For detailed technical implementation, see:
 - Database migrations in `packages/prisma/migrations/`
+- Implementation plan: `specs/google-calendar-two-way-sync/PLAN.md`

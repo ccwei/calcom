@@ -221,8 +221,6 @@ describe("/api/cron/calendar-subscriptions", () => {
         adapterFactory: expect.any(Object),
         selectedCalendarRepository: expect.any(Object),
         featureRepository: expect.any(Object),
-        teamFeatureRepository: expect.any(Object),
-        userFeatureRepository: expect.any(Object),
         calendarSyncService: expect.any(Object),
         calendarCacheEventService: expect.any(Object),
       });

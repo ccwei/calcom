@@ -22,8 +22,6 @@ import type { AdapterFactory } from "@calcom/features/calendar-subscription/adap
 import type { CalendarCacheEventService } from "@calcom/features/calendar-subscription/lib/cache/CalendarCacheEventService";
 import type { CalendarSyncService } from "@calcom/features/calendar-subscription/lib/sync/CalendarSyncService";
 import type { IFeatureRepository } from "@calcom/features/flags/repositories/PrismaFeatureRepository";
-import type { ITeamFeatureRepository } from "@calcom/features/flags/repositories/PrismaTeamFeatureRepository";
-import type { IUserFeatureRepository } from "@calcom/features/flags/repositories/PrismaUserFeatureRepository";
 import type { ISelectedCalendarRepository } from "@calcom/features/selectedCalendar/repositories/SelectedCalendarRepository.interface";
 import type { SelectedCalendar } from "@calcom/prisma/client";
 import { CalendarSubscriptionService } from "../CalendarSubscriptionService";
@@ -109,10 +107,6 @@ describe("CalendarSubscriptionService", () => {
   let mockAdapterFactory: AdapterFactory;
   let mockSelectedCalendarRepository: ISelectedCalendarRepository;
   let mockFeatureRepository: IFeatureRepository;
-  let mockTeamFeatureRepository: ITeamFeatureRepository;
-  let mockUserFeatureRepository: IUserFeatureRepository & {
-    checkIfUserHasFeature: (userId: number, slug: string) => Promise<boolean>;
-  };
   let mockCalendarCacheEventService: CalendarCacheEventService;
   let mockCalendarSyncService: CalendarSyncService;
   let mockAdapter: {
@@ -160,16 +154,6 @@ describe("CalendarSubscriptionService", () => {
       checkIfFeatureIsEnabledGlobally: vi.fn().mockResolvedValue(true),
     };
 
-    mockTeamFeatureRepository = {
-      checkIfTeamHasFeature: vi.fn().mockResolvedValue(true),
-      getTeamsWithFeatureEnabled: vi.fn().mockResolvedValue([1, 2, 3]),
-    };
-
-    mockUserFeatureRepository = {
-      checkIfUserHasFeature: vi.fn().mockResolvedValue(true),
-      checkIfUserHasFeatureNonHierarchical: vi.fn().mockResolvedValue(true),
-    };
-
     mockCalendarCacheEventService = {
       handleEvents: vi.fn().mockResolvedValue(undefined),
       cleanupCache: vi.fn().mockResolvedValue(undefined),
@@ -184,8 +168,6 @@ describe("CalendarSubscriptionService", () => {
       adapterFactory: mockAdapterFactory,
       selectedCalendarRepository: mockSelectedCalendarRepository,
       featureRepository: mockFeatureRepository,
-      teamFeatureRepository: mockTeamFeatureRepository,
-      userFeatureRepository: mockUserFeatureRepository,
       calendarCacheEventService: mockCalendarCacheEventService,
       calendarSyncService: mockCalendarSyncService,
     });
@@ -338,7 +320,6 @@ describe("CalendarSubscriptionService", () => {
       mockFeatureRepository.checkIfFeatureIsEnabledGlobally
         .mockResolvedValueOnce(true)
         .mockResolvedValueOnce(true);
-      mockUserFeatureRepository.checkIfUserHasFeature.mockResolvedValue(true);
 
       await service.processEvents(mockSelectedCalendar);
 
@@ -363,7 +344,6 @@ describe("CalendarSubscriptionService", () => {
       mockFeatureRepository.checkIfFeatureIsEnabledGlobally
         .mockResolvedValueOnce(false)
         .mockResolvedValueOnce(true);
-      mockUserFeatureRepository.checkIfUserHasFeature.mockResolvedValue(true);
 
       await service.processEvents(mockSelectedCalendar);
 
@@ -371,15 +351,14 @@ describe("CalendarSubscriptionService", () => {
       expect(mockCalendarSyncService.handleEvents).toHaveBeenCalled();
     });
 
-    test("should not process cache when cache is disabled for user", async () => {
+    test("should process cache for all users when cache is globally enabled", async () => {
       mockFeatureRepository.checkIfFeatureIsEnabledGlobally
         .mockResolvedValueOnce(true)
         .mockResolvedValueOnce(true);
-      mockUserFeatureRepository.checkIfUserHasFeature.mockResolvedValue(false);
 
       await service.processEvents(mockSelectedCalendar);
 
-      expect(mockCalendarCacheEventService.handleEvents).not.toHaveBeenCalled();
+      expect(mockCalendarCacheEventService.handleEvents).toHaveBeenCalled();
       expect(mockCalendarSyncService.handleEvents).toHaveBeenCalled();
     });
 
@@ -399,7 +378,6 @@ describe("CalendarSubscriptionService", () => {
       mockFeatureRepository.checkIfFeatureIsEnabledGlobally
         .mockResolvedValueOnce(true)
         .mockResolvedValueOnce(true);
-      mockUserFeatureRepository.checkIfUserHasFeature.mockResolvedValue(true);
 
       const apiError = new Error("API Error");
       mockAdapter.fetchEvents.mockRejectedValue(apiError);
@@ -418,7 +396,6 @@ describe("CalendarSubscriptionService", () => {
       mockFeatureRepository.checkIfFeatureIsEnabledGlobally
         .mockResolvedValueOnce(true)
         .mockResolvedValueOnce(true);
-      mockUserFeatureRepository.checkIfUserHasFeature.mockResolvedValue(true);
 
       mockAdapter.fetchEvents.mockResolvedValue({
         ...mockEvents,
@@ -450,13 +427,9 @@ describe("CalendarSubscriptionService", () => {
 
       await service.checkForNewSubscriptions();
 
-      expect(mockTeamFeatureRepository.getTeamsWithFeatureEnabled).toHaveBeenCalledWith(
-        "calendar-subscription-cache"
-      );
       expect(mockSelectedCalendarRepository.findNextSubscriptionBatch).toHaveBeenCalledWith({
         take: 100,
         integrations: ["google_calendar", "office365_calendar"],
-        teamIds: [1, 2, 3],
         genericCalendarSuffixes: [
           "@group.v.calendar.google.com",
           "@group.calendar.google.com",
@@ -480,13 +453,9 @@ describe("CalendarSubscriptionService", () => {
 
       await service.checkForNewSubscriptions();
 
-      expect(mockTeamFeatureRepository.getTeamsWithFeatureEnabled).toHaveBeenCalledWith(
-        "calendar-subscription-cache"
-      );
       expect(mockSelectedCalendarRepository.findNextSubscriptionBatch).toHaveBeenCalledWith({
         take: 100,
         integrations: ["google_calendar", "office365_calendar"],
-        teamIds: [1, 2, 3],
         genericCalendarSuffixes: [
           "@group.v.calendar.google.com",
           "@group.calendar.google.com",
@@ -499,7 +468,7 @@ describe("CalendarSubscriptionService", () => {
       expect(subscribeSpy).toHaveBeenCalledWith("calendar-with-cache-2");
     });
 
-    test("should skip when cache feature is globally disabled", async () => {
+    test("should skip when cache and sync features are globally disabled", async () => {
       mockFeatureRepository.checkIfFeatureIsEnabledGlobally.mockResolvedValue(false);
       const subscribeSpy = vi.spyOn(service, "subscribe").mockResolvedValue(undefined);
 
@@ -508,9 +477,23 @@ describe("CalendarSubscriptionService", () => {
       expect(mockFeatureRepository.checkIfFeatureIsEnabledGlobally).toHaveBeenCalledWith(
         "calendar-subscription-cache"
       );
-      expect(mockTeamFeatureRepository.getTeamsWithFeatureEnabled).not.toHaveBeenCalled();
+      expect(mockFeatureRepository.checkIfFeatureIsEnabledGlobally).toHaveBeenCalledWith(
+        "calendar-subscription-sync"
+      );
       expect(mockSelectedCalendarRepository.findNextSubscriptionBatch).not.toHaveBeenCalled();
       expect(subscribeSpy).not.toHaveBeenCalled();
+    });
+
+    test("should proceed when only sync is enabled", async () => {
+      mockFeatureRepository.checkIfFeatureIsEnabledGlobally
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(true);
+      const subscribeSpy = vi.spyOn(service, "subscribe").mockResolvedValue(undefined);
+
+      await service.checkForNewSubscriptions();
+
+      expect(mockSelectedCalendarRepository.findNextSubscriptionBatch).toHaveBeenCalled();
+      expect(subscribeSpy).toHaveBeenCalledWith(mockSelectedCalendar.id);
     });
 
     test("should not process any calendars when no calendars are returned", async () => {
@@ -520,13 +503,9 @@ describe("CalendarSubscriptionService", () => {
 
       await service.checkForNewSubscriptions();
 
-      expect(mockTeamFeatureRepository.getTeamsWithFeatureEnabled).toHaveBeenCalledWith(
-        "calendar-subscription-cache"
-      );
       expect(mockSelectedCalendarRepository.findNextSubscriptionBatch).toHaveBeenCalledWith({
         take: 100,
         integrations: ["google_calendar", "office365_calendar"],
-        teamIds: [1, 2, 3],
         genericCalendarSuffixes: [
           "@group.v.calendar.google.com",
           "@group.calendar.google.com",
@@ -550,14 +529,13 @@ describe("CalendarSubscriptionService", () => {
       );
     });
 
-    test("isCacheEnabledForUser should check user cache feature", async () => {
-      mockUserFeatureRepository.checkIfUserHasFeature.mockResolvedValue(true);
+    test("isCacheEnabledForUser should follow global cache feature", async () => {
+      mockFeatureRepository.checkIfFeatureIsEnabledGlobally.mockResolvedValue(true);
 
       const result = await service.isCacheEnabledForUser(1);
 
       expect(result).toBe(true);
-      expect(mockUserFeatureRepository.checkIfUserHasFeature).toHaveBeenCalledWith(
-        1,
+      expect(mockFeatureRepository.checkIfFeatureIsEnabledGlobally).toHaveBeenCalledWith(
         "calendar-subscription-cache"
       );
     });

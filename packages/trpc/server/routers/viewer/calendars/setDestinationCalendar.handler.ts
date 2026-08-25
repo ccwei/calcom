@@ -4,6 +4,7 @@ import {
   getConnectedCalendars,
 } from "@calcom/features/calendars/lib/CalendarManager";
 import { DestinationCalendarRepository } from "@calcom/features/calendars/repositories/DestinationCalendarRepository";
+import { SelectedCalendarRepository } from "@calcom/features/selectedCalendar/repositories/SelectedCalendarRepository";
 import { prisma } from "@calcom/prisma";
 import type { TrpcSessionUser } from "@calcom/trpc/server/types";
 
@@ -123,5 +124,15 @@ export const setDestinationCalendarHandler = async ({ ctx, input }: SetDestinati
       credentialId,
       delegationCredentialId,
     },
+  });
+
+  // Ensure destination calendar is also selected so watch channels cover booking writes
+  await SelectedCalendarRepository.upsert({
+    userId: user.id,
+    integration,
+    externalId,
+    eventTypeId: eventTypeId ?? null,
+    credentialId: credentialId ?? null,
+    delegationCredentialId: delegationCredentialId ?? null,
   });
 };

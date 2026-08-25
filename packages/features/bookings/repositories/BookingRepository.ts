@@ -946,6 +946,44 @@ export class BookingRepository implements IBookingRepository {
     });
   }
 
+  /**
+   * Finds booking UIDs linked to external calendar event IDs via BookingReference.
+   * Used as a fallback when iCalUID does not match the app suffix.
+   */
+  async findBookingUidsByCalendarReferenceUids({
+    referenceUids,
+  }: {
+    referenceUids: string[];
+  }): Promise<{ referenceUid: string; bookingUid: string }[]> {
+    if (referenceUids.length === 0) {
+      return [];
+    }
+
+    const references = await this.prismaClient.bookingReference.findMany({
+      where: {
+        uid: { in: referenceUids },
+        type: { contains: "_calendar" },
+        deleted: null,
+        bookingId: { not: null },
+      },
+      select: {
+        uid: true,
+        booking: {
+          select: {
+            uid: true,
+          },
+        },
+      },
+    });
+
+    return references
+      .filter((reference): reference is typeof reference & { booking: { uid: string } } => !!reference.booking)
+      .map((reference) => ({
+        referenceUid: reference.uid,
+        bookingUid: reference.booking.uid,
+      }));
+  }
+
   async findByIdIncludeUserAndAttendees(bookingId: number) {
     return await this.prismaClient.booking.findUnique({
       where: {

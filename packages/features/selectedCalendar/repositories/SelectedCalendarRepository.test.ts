@@ -126,22 +126,16 @@ describe("SelectedCalendarRepository", () => {
 
       const result = await repository.findNextSubscriptionBatch({
         take: 10,
-        teamIds: [1, 2, 3],
         integrations: ["google_calendar", "office365_calendar"],
       });
 
       expect(mockPrismaClient.selectedCalendar.findMany).toHaveBeenCalledWith({
         where: {
           integration: { in: ["google_calendar", "office365_calendar"] },
-          user: {
-            teams: {
-              some: {
-                accepted: true,
-                teamId: { in: [1, 2, 3] },
-              },
-            },
-          },
           AND: [
+            {
+              OR: [{ credentialId: { not: null } }, { delegationCredentialId: { not: null } }],
+            },
             {
               OR: [
                 { syncSubscribedAt: null },
@@ -169,22 +163,16 @@ describe("SelectedCalendarRepository", () => {
 
       const result = await repository.findNextSubscriptionBatch({
         take: 5,
-        teamIds: [1, 2, 3],
         integrations: [],
       });
 
       expect(mockPrismaClient.selectedCalendar.findMany).toHaveBeenCalledWith({
         where: {
           integration: { in: [] },
-          user: {
-            teams: {
-              some: {
-                accepted: true,
-                teamId: { in: [1, 2, 3] },
-              },
-            },
-          },
           AND: [
+            {
+              OR: [{ credentialId: { not: null } }, { delegationCredentialId: { not: null } }],
+            },
             {
               OR: [
                 { syncSubscribedAt: null },
@@ -214,7 +202,6 @@ describe("SelectedCalendarRepository", () => {
 
       const result = await repository.findNextSubscriptionBatch({
         take: 10,
-        teamIds: [1, 2, 3],
         integrations: ["google_calendar"],
         genericCalendarSuffixes: genericSuffixes,
       });
@@ -222,15 +209,10 @@ describe("SelectedCalendarRepository", () => {
       expect(mockPrismaClient.selectedCalendar.findMany).toHaveBeenCalledWith({
         where: {
           integration: { in: ["google_calendar"] },
-          user: {
-            teams: {
-              some: {
-                accepted: true,
-                teamId: { in: [1, 2, 3] },
-              },
-            },
-          },
           AND: [
+            {
+              OR: [{ credentialId: { not: null } }, { delegationCredentialId: { not: null } }],
+            },
             {
               OR: [
                 { syncSubscribedAt: null },

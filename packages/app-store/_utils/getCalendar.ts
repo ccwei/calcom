@@ -53,24 +53,15 @@ export const getCalendar = async (
   let shouldServeCache = false;
   if (mode === "slots") {
     const featuresRepository = new FeaturesRepository(prisma);
-    const [isCalendarSubscriptionCacheEnabled, isCalendarSubscriptionCacheEnabledForUser] = await Promise.all(
-      [
-        featuresRepository.checkIfFeatureIsEnabledGlobally(
-          CalendarSubscriptionService.CALENDAR_SUBSCRIPTION_CACHE_FEATURE
-        ),
-        featuresRepository.checkIfUserHasFeatureNonHierarchical(
-          credential.userId as number,
-          CalendarSubscriptionService.CALENDAR_SUBSCRIPTION_CACHE_FEATURE
-        ),
-      ]
+    const isCalendarSubscriptionCacheEnabled = await featuresRepository.checkIfFeatureIsEnabledGlobally(
+      CalendarSubscriptionService.CALENDAR_SUBSCRIPTION_CACHE_FEATURE
     );
-    shouldServeCache = isCalendarSubscriptionCacheEnabled && isCalendarSubscriptionCacheEnabledForUser;
+    shouldServeCache = isCalendarSubscriptionCacheEnabled;
     log.debug("Cache feature flag check", {
       credentialId: credential.id,
       userId: credential.userId,
       mode,
       isCalendarSubscriptionCacheEnabled,
-      isCalendarSubscriptionCacheEnabledForUser,
       shouldServeCache,
     });
   } else {

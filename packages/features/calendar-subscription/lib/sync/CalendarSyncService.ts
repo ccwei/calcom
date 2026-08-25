@@ -1,8 +1,9 @@
 import type { CreateRegularBookingData } from "@calcom/features/bookings/lib/dto/types";
-import { IdempotencyKeyService } from "@calcom/lib/idempotencyKey/idempotencyKeyService";
 import handleCancelBooking from "@calcom/features/bookings/lib/handleCancelBooking";
+import { IdempotencyKeyService } from "@calcom/lib/idempotencyKey/idempotencyKeyService";
 import type { BookingRepository } from "@calcom/features/bookings/repositories/BookingRepository";
 import type { CalendarSubscriptionEventItem } from "@calcom/features/calendar-subscription/lib/CalendarSubscriptionPort.interface";
+import { APP_NAME } from "@calcom/lib/constants";
 import logger from "@calcom/lib/logger";
 import { safeStringify } from "@calcom/lib/safeStringify";
 import type { SelectedCalendar } from "@calcom/prisma/client";
@@ -12,6 +13,8 @@ const log = logger.getSubLogger({ prefix: ["CalendarSyncService"] });
 
 /**
  * Service to handle synchronization of calendar events.
+ * Inbound sync currently applies reschedule (time change) only — cancellations are ignored in handleEvents.
+ * cancelBooking remains available for a future opt-in.
  */
 export class CalendarSyncService {
   constructor(
@@ -42,59 +45,104 @@ export class CalendarSyncService {
       },
     });
 
-    // only process cal.com calendar events
-    const calEvents = calendarSubscriptionEvents.filter((e) =>
-      e.iCalUID?.toLowerCase()?.endsWith("@cal.com")
-    );
+    const eventsWithBookingUid = await this.resolveBookingUids(calendarSubscriptionEvents);
 
-    metrics.distribution("calendar.sync.handleEvents.events_count", calEvents.length, {
+    metrics.distribution("calendar.sync.handleEvents.events_count", eventsWithBookingUid.length, {
       attributes: {
         integration: selectedCalendar.integration,
       },
     });
 
-    if (calEvents.length === 0) {
+    if (eventsWithBookingUid.length === 0) {
       log.debug("handleEvents: no calendar events to process");
       return;
     }
 
-    log.debug("handleEvents: processing calendar events", { count: calEvents.length });
+    log.debug("handleEvents: processing calendar events", { count: eventsWithBookingUid.length });
 
     await Promise.all(
-      calEvents.map((e) => {
-        if (e.status === "cancelled") {
-          return this.cancelBooking(e, selectedCalendar.userId);
-        } else {
-          return this.rescheduleBooking(e, selectedCalendar.userId);
+      eventsWithBookingUid.map(({ event, bookingUid }) => {
+        // Not wired to cancelBooking — hosts should cancel in-app to preserve booking workflows.
+        // Re-enable by calling this.cancelBooking(...) when product is ready.
+        if (event.status === "cancelled") {
+          log.debug("Skipping cancelled calendar event — sync only supports reschedule", {
+            eventId: event.id,
+            bookingUid,
+          });
+          return;
         }
+        return this.rescheduleBooking(event, selectedCalendar.userId, bookingUid);
       })
     );
   }
 
   /**
-   * Cancels a booking
-   * @param event
-   * @returns
+   * Resolves booking UIDs for calendar events via iCalUID app suffix, then BookingReference fallback.
    */
-  async cancelBooking(event: CalendarSubscriptionEventItem, calendarUserId: number) {
+  private async resolveBookingUids(
+    events: CalendarSubscriptionEventItem[]
+  ): Promise<{ event: CalendarSubscriptionEventItem; bookingUid: string }[]> {
+    const appSuffix = `@${APP_NAME.toLowerCase()}`;
+    const resolved: { event: CalendarSubscriptionEventItem; bookingUid: string }[] = [];
+    const unresolved: CalendarSubscriptionEventItem[] = [];
+
+    for (const event of events) {
+      if (event.iCalUID?.toLowerCase()?.endsWith(appSuffix)) {
+        const [bookingUid] = event.iCalUID.split("@");
+        if (bookingUid) {
+          resolved.push({ event, bookingUid });
+          continue;
+        }
+      }
+      unresolved.push(event);
+    }
+
+    if (unresolved.length === 0) {
+      return resolved;
+    }
+
+    const referenceMatches = await this.deps.bookingRepository.findBookingUidsByCalendarReferenceUids({
+      referenceUids: unresolved.map((event) => event.id),
+    });
+    const bookingUidByReferenceUid = new Map(
+      referenceMatches.map((match) => [match.referenceUid, match.bookingUid])
+    );
+
+    for (const event of unresolved) {
+      const bookingUid = bookingUidByReferenceUid.get(event.id);
+      if (bookingUid) {
+        resolved.push({ event, bookingUid });
+      }
+    }
+
+    return resolved;
+  }
+
+  /**
+   * Cancels a booking from an external calendar cancellation.
+   * Kept for future use — not currently called from handleEvents.
+   */
+  async cancelBooking(event: CalendarSubscriptionEventItem, calendarUserId: number, bookingUid?: string) {
     const startTime = performance.now();
     log.debug("cancelBooking", { event });
-    const [bookingUid] = event.iCalUID?.split("@") ?? [undefined];
-    if (!bookingUid) {
-      log.debug("Unable to sync, booking UID not found in iCalUID");
+    const resolvedBookingUid = bookingUid ?? event.iCalUID?.split("@")[0];
+    if (!resolvedBookingUid) {
+      log.debug("Unable to sync, booking UID not found");
       return;
     }
 
     try {
-      const booking = await this.deps.bookingRepository.findBookingByUidWithEventType({ bookingUid });
+      const booking = await this.deps.bookingRepository.findBookingByUidWithEventType({
+        bookingUid: resolvedBookingUid,
+      });
       if (!booking) {
-        log.debug("Unable to sync, booking not found in database", { bookingUid });
+        log.debug("Unable to sync, booking not found in database", { bookingUid: resolvedBookingUid });
         return;
       }
 
       if (booking.userId !== calendarUserId) {
         log.debug("Skipping sync, calendar owner is not the booking host", {
-          bookingUid,
+          bookingUid: resolvedBookingUid,
           calendarUserId,
           bookingUserId: booking.userId,
         });
@@ -106,7 +154,7 @@ export class CalendarSyncService {
 
       if (!booking.userId || !booking.userPrimaryEmail) {
         log.warn("Unable to sync cancellation, booking missing required user data", {
-          bookingUid,
+          bookingUid: resolvedBookingUid,
           hasUserId: !!booking.userId,
           hasUserPrimaryEmail: !!booking.userPrimaryEmail,
         });
@@ -129,7 +177,7 @@ export class CalendarSyncService {
           skipCalendarSyncTaskCancellation: true,
         },
       });
-      log.info("Successfully cancelled booking from calendar sync", { bookingUid });
+      log.info("Successfully cancelled booking from calendar sync", { bookingUid: resolvedBookingUid });
 
       metrics.count("calendar.sync.cancelBooking.calls", 1, {
         attributes: { status: "success" },
@@ -138,7 +186,10 @@ export class CalendarSyncService {
         attributes: { status: "success" },
       });
     } catch (error) {
-      log.error("Failed to cancel booking from calendar sync", { bookingUid, error: safeStringify(error) });
+      log.error("Failed to cancel booking from calendar sync", {
+        bookingUid: resolvedBookingUid,
+        error: safeStringify(error),
+      });
 
       metrics.count("calendar.sync.cancelBooking.calls", 1, {
         attributes: { status: "error" },
@@ -153,25 +204,27 @@ export class CalendarSyncService {
    * Reschedule a booking
    * @param event
    */
-  async rescheduleBooking(event: CalendarSubscriptionEventItem, calendarUserId: number) {
+  async rescheduleBooking(event: CalendarSubscriptionEventItem, calendarUserId: number, bookingUid?: string) {
     const startTime = performance.now();
     log.debug("rescheduleBooking", { event });
-    const [bookingUid] = event.iCalUID?.split("@") ?? [undefined];
-    if (!bookingUid) {
-      log.debug("Unable to sync, booking UID not found in iCalUID");
+    const resolvedBookingUid = bookingUid ?? event.iCalUID?.split("@")[0];
+    if (!resolvedBookingUid) {
+      log.debug("Unable to sync, booking UID not found");
       return;
     }
 
     try {
-      const booking = await this.deps.bookingRepository.findBookingByUidWithEventType({ bookingUid });
+      const booking = await this.deps.bookingRepository.findBookingByUidWithEventType({
+        bookingUid: resolvedBookingUid,
+      });
       if (!booking) {
-        log.debug("Unable to sync, booking not found in database", { bookingUid });
+        log.debug("Unable to sync, booking not found in database", { bookingUid: resolvedBookingUid });
         return;
       }
 
       if (booking.userId !== calendarUserId) {
         log.debug("Skipping sync, calendar owner is not the booking host", {
-          bookingUid,
+          bookingUid: resolvedBookingUid,
           calendarUserId,
           bookingUserId: booking.userId,
         });
@@ -182,7 +235,9 @@ export class CalendarSyncService {
       }
 
       if (!booking.eventTypeId) {
-        log.warn("Unable to sync reschedule, booking missing eventTypeId", { bookingUid });
+        log.warn("Unable to sync reschedule, booking missing eventTypeId", {
+          bookingUid: resolvedBookingUid,
+        });
         metrics.count("calendar.sync.rescheduleBooking.calls", 1, {
           attributes: { status: "skipped", reason: "missing_event_type_id" },
         });
@@ -190,7 +245,7 @@ export class CalendarSyncService {
       }
 
       if (!hasStartTimeChanged(booking, event)) {
-        log.debug("Skipping reschedule, start time has not changed", { bookingUid });
+        log.debug("Skipping reschedule, start time has not changed", { bookingUid: resolvedBookingUid });
         metrics.count("calendar.sync.rescheduleBooking.calls", 1, {
           attributes: { status: "skipped", reason: "no_time_change" },
         });
@@ -206,15 +261,17 @@ export class CalendarSyncService {
       await regularBookingService.createBooking({
         bookingData: buildRescheduleBookingData(booking, event),
         bookingMeta: {
+          userId: booking.userId ?? undefined,
           // Skip calendar event creation to avoid infinite loops
           // (Google/Office365 → Cal.com → Google/Office365 → ...)
           skipCalendarSyncTaskCreation: true,
           skipAvailabilityCheck: true,
           skipEventLimitsCheck: true,
+          skipBookingWindowCheck: true,
           impersonatedByUserUuid: null,
         },
       });
-      log.info("Successfully rescheduled booking from calendar sync", { bookingUid });
+      log.info("Successfully rescheduled booking from calendar sync", { bookingUid: resolvedBookingUid });
 
       metrics.count("calendar.sync.rescheduleBooking.calls", 1, {
         attributes: { status: "success" },
@@ -224,7 +281,7 @@ export class CalendarSyncService {
       });
     } catch (error) {
       log.error("Failed to reschedule booking from calendar sync", {
-        bookingUid,
+        bookingUid: resolvedBookingUid,
         error: safeStringify(error),
       });
 

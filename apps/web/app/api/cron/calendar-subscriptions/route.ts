@@ -6,8 +6,6 @@ import { CalendarCacheEventRepository } from "@calcom/features/calendar-subscrip
 import { CalendarCacheEventService } from "@calcom/features/calendar-subscription/lib/cache/CalendarCacheEventService";
 import { CalendarSyncService } from "@calcom/features/calendar-subscription/lib/sync/CalendarSyncService";
 import { getFeatureRepository } from "@calcom/features/di/containers/FeatureRepository";
-import { getTeamFeatureRepository } from "@calcom/features/di/containers/TeamFeatureRepository";
-import { getUserFeatureRepository } from "@calcom/features/di/containers/UserFeatureRepository";
 import { SelectedCalendarRepository } from "@calcom/features/selectedCalendar/repositories/SelectedCalendarRepository";
 import { prisma } from "@calcom/prisma";
 import { defaultResponderForAppDir } from "@calcom/web/app/api/defaultResponderForAppDir";
@@ -42,8 +40,6 @@ async function getHandler(request: NextRequest) {
     adapterFactory: new DefaultAdapterFactory(),
     selectedCalendarRepository: new SelectedCalendarRepository(prisma),
     featureRepository: getFeatureRepository(),
-    teamFeatureRepository: getTeamFeatureRepository(),
-    userFeatureRepository: getUserFeatureRepository(),
     calendarSyncService,
     calendarCacheEventService,
   });

@@ -575,6 +575,7 @@ async function handler(
     areCalendarEventsEnabled = true,
     skipAvailabilityCheck = false,
     skipEventLimitsCheck = false,
+    skipBookingWindowCheck = false,
     skipCalendarSyncTaskCreation = false,
     traceContext: passedTraceContext,
     impersonatedByUserUuid,
@@ -849,13 +850,15 @@ async function handler(
   const userSchedule = user?.schedules.find((schedule) => schedule.id === user?.defaultScheduleId);
   const eventTimeZone = eventType.schedule?.timeZone ?? userSchedule?.timeZone;
 
-  await validateBookingTimeIsNotOutOfBounds<typeof eventType>(
-    reqBody.start,
-    reqBody.timeZone,
-    eventType,
-    eventTimeZone,
-    tracingLogger
-  );
+  if (!skipBookingWindowCheck) {
+    await validateBookingTimeIsNotOutOfBounds<typeof eventType>(
+      reqBody.start,
+      reqBody.timeZone,
+      eventType,
+      eventTimeZone,
+      tracingLogger
+    );
+  }
 
   validateEventLength({
     reqBodyStart: reqBody.start,

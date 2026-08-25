@@ -471,6 +471,7 @@ describe("CalendarSyncService - skip reschedule when no time change", () => {
   beforeEach(() => {
     mockBookingRepository = {
       findBookingByUidWithEventType: vi.fn(),
+      findBookingUidsByCalendarReferenceUids: vi.fn().mockResolvedValue([]),
     } as unknown as BookingRepository;
 
     service = new CalendarSyncService({
@@ -536,6 +537,7 @@ describe("iCalUID parsing", () => {
   beforeEach(() => {
     mockBookingRepository = {
       findBookingByUidWithEventType: vi.fn(),
+      findBookingUidsByCalendarReferenceUids: vi.fn().mockResolvedValue([]),
     } as unknown as BookingRepository;
 
     service = new CalendarSyncService({
@@ -546,18 +548,21 @@ describe("iCalUID parsing", () => {
   });
 
   test("iCalUID with multiple @ signs: only first part is used as bookingUid", async () => {
-    const event = makeEvent({ iCalUID: "uid-part@extra@cal.com", status: "cancelled" });
+    const event = makeEvent({
+      iCalUID: "uid-part@extra@cal.com",
+      start: new Date("2024-01-20T14:00:00Z"),
+    });
     const booking = makeBooking({ uid: "uid-part" });
 
     mockBookingRepository.findBookingByUidWithEventType = vi.fn().mockResolvedValue(booking);
 
-    await service.cancelBooking(event, mockSelectedCalendar.userId);
+    await service.rescheduleBooking(event, mockSelectedCalendar.userId);
 
     // split("@") → ["uid-part", "extra", "cal.com"], first element is "uid-part"
     expect(mockBookingRepository.findBookingByUidWithEventType).toHaveBeenCalledWith({
       bookingUid: "uid-part",
     });
-    expect(mockHandleCancelBooking).toHaveBeenCalled();
+    expect(mockCreateBooking).toHaveBeenCalled();
   });
 
   test("iCalUID with UUID format works correctly", async () => {
@@ -591,7 +596,7 @@ describe("iCalUID parsing", () => {
   test("iCalUID that is just '@' results in empty bookingUid and returns early", async () => {
     const event = makeEvent({ iCalUID: "@" });
 
-    await service.cancelBooking(event, mockSelectedCalendar.userId);
+    await service.rescheduleBooking(event, mockSelectedCalendar.userId);
 
     // split("@") → ["", ""], first element is "" which is falsy
     expect(mockBookingRepository.findBookingByUidWithEventType).not.toHaveBeenCalled();
@@ -600,7 +605,7 @@ describe("iCalUID parsing", () => {
   test("undefined iCalUID returns early", async () => {
     const event = makeEvent({ iCalUID: undefined as unknown as null });
 
-    await service.cancelBooking(event, mockSelectedCalendar.userId);
+    await service.rescheduleBooking(event, mockSelectedCalendar.userId);
 
     expect(mockBookingRepository.findBookingByUidWithEventType).not.toHaveBeenCalled();
   });
@@ -665,6 +670,7 @@ describe("CalendarSyncService - booking data updated from external event", () =>
   beforeEach(() => {
     mockBookingRepository = {
       findBookingByUidWithEventType: vi.fn(),
+      findBookingUidsByCalendarReferenceUids: vi.fn().mockResolvedValue([]),
     } as unknown as BookingRepository;
 
     service = new CalendarSyncService({
@@ -852,6 +858,7 @@ describe("CalendarSyncService - error isolation", () => {
   beforeEach(() => {
     mockBookingRepository = {
       findBookingByUidWithEventType: vi.fn(),
+      findBookingUidsByCalendarReferenceUids: vi.fn().mockResolvedValue([]),
     } as unknown as BookingRepository;
 
     service = new CalendarSyncService({
@@ -862,31 +869,34 @@ describe("CalendarSyncService - error isolation", () => {
   });
 
   test("handleEvents: failure in one event does not block others", async () => {
-    const cancelEvent = makeEvent({ iCalUID: "cancel-uid@cal.com", status: "cancelled" });
-    const rescheduleEvent = makeEvent({
-      iCalUID: "reschedule-uid@cal.com",
+    const event1 = makeEvent({
+      iCalUID: "uid-1@cal.com",
       status: "confirmed",
       start: new Date("2024-01-20T14:00:00Z"),
     });
-
-    const cancelBooking = makeBooking({ uid: "cancel-uid" });
-    const rescheduleBooking = makeBooking({ uid: "reschedule-uid" });
+    const event2 = makeEvent({
+      iCalUID: "uid-2@cal.com",
+      status: "confirmed",
+      start: new Date("2024-01-20T15:00:00Z"),
+    });
 
     mockBookingRepository.findBookingByUidWithEventType = vi
       .fn()
       .mockImplementation(({ bookingUid }: { bookingUid: string }) => {
-        if (bookingUid === "cancel-uid") return Promise.resolve(cancelBooking);
-        if (bookingUid === "reschedule-uid") return Promise.resolve(rescheduleBooking);
+        if (bookingUid === "uid-1") return Promise.reject(new Error("Reschedule lookup failed"));
+        if (bookingUid === "uid-2") return Promise.resolve(makeBooking({ uid: "uid-2" }));
         return Promise.resolve(null);
       });
 
-    // Cancel fails, but reschedule should still work
-    mockHandleCancelBooking.mockRejectedValue(new Error("Cancel service down"));
+    await expect(service.handleEvents(mockSelectedCalendar, [event1, event2])).resolves.toBeUndefined();
 
-    await service.handleEvents(mockSelectedCalendar, [cancelEvent, rescheduleEvent]);
-
-    expect(mockHandleCancelBooking).toHaveBeenCalled();
-    expect(mockCreateBooking).toHaveBeenCalled();
+    expect(mockBookingRepository.findBookingByUidWithEventType).toHaveBeenCalledTimes(2);
+    expect(mockCreateBooking).toHaveBeenCalledTimes(1);
+    expect(mockCreateBooking).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingData: expect.objectContaining({ rescheduleUid: "uid-2" }),
+      })
+    );
   });
 
   test("handleEvents: DB error on one event does not block others", async () => {
@@ -906,7 +916,85 @@ describe("CalendarSyncService - error isolation", () => {
     expect(mockCreateBooking).toHaveBeenCalledTimes(1);
   });
 
-  test("cancelBooking: passes correct data to handleCancelBooking", async () => {
+  test("rescheduleBooking: passes correct bookingMeta flags", async () => {
+    const booking = makeBooking();
+    const event = makeEvent({
+      start: new Date("2024-01-20T14:00:00Z"),
+      end: new Date("2024-01-20T15:00:00Z"),
+    });
+
+    mockBookingRepository.findBookingByUidWithEventType = vi.fn().mockResolvedValue(booking);
+
+    await service.rescheduleBooking(event, mockSelectedCalendar.userId);
+
+    expect(mockCreateBooking).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingMeta: {
+          userId: booking.userId,
+          skipCalendarSyncTaskCreation: true,
+          skipAvailabilityCheck: true,
+          skipEventLimitsCheck: true,
+          skipBookingWindowCheck: true,
+          impersonatedByUserUuid: null,
+        },
+      })
+    );
+  });
+
+  test("rescheduleBooking: skips booking without eventTypeId", async () => {
+    const booking = makeBooking({ eventTypeId: null });
+    const event = makeEvent();
+
+    mockBookingRepository.findBookingByUidWithEventType = vi.fn().mockResolvedValue(booking);
+
+    await service.rescheduleBooking(event, mockSelectedCalendar.userId);
+
+    expect(mockCreateBooking).not.toHaveBeenCalled();
+  });
+
+  test("rescheduleBooking: skips when calendar owner is not the booking host", async () => {
+    const booking = makeBooking({ uid: "booking-uid-123", userId: 99 });
+    const event = makeEvent({
+      iCalUID: "booking-uid-123@cal.com",
+      start: new Date("2024-01-20T14:00:00Z"),
+    });
+
+    mockBookingRepository.findBookingByUidWithEventType = vi.fn().mockResolvedValue(booking);
+
+    // calendarUserId (42) !== booking.userId (99) → skip
+    await service.rescheduleBooking(event, mockSelectedCalendar.userId);
+
+    expect(mockCreateBooking).not.toHaveBeenCalled();
+  });
+
+  test("handleEvents: skips cancelled events and only reschedules non-cancelled ones", async () => {
+    const cancelledEvent = makeEvent({ iCalUID: "uid-a@cal.com", status: "cancelled" });
+    const confirmedEvent = makeEvent({
+      iCalUID: "uid-b@cal.com",
+      status: "confirmed",
+      start: new Date("2024-01-20T14:00:00Z"),
+    });
+
+    const bookingB = makeBooking({ uid: "uid-b" });
+
+    mockBookingRepository.findBookingByUidWithEventType = vi
+      .fn()
+      .mockImplementation(({ bookingUid }: { bookingUid: string }) => {
+        if (bookingUid === "uid-b") return Promise.resolve(bookingB);
+        return Promise.resolve(null);
+      });
+
+    await service.handleEvents(mockSelectedCalendar, [cancelledEvent, confirmedEvent]);
+
+    expect(mockHandleCancelBooking).not.toHaveBeenCalled();
+    expect(mockCreateBooking).toHaveBeenCalledTimes(1);
+    expect(mockBookingRepository.findBookingByUidWithEventType).toHaveBeenCalledTimes(1);
+    expect(mockBookingRepository.findBookingByUidWithEventType).toHaveBeenCalledWith({
+      bookingUid: "uid-b",
+    });
+  });
+
+  test("cancelBooking: still works when called directly", async () => {
     const booking = makeBooking({
       uid: "my-booking-uid",
       userId: 99,
@@ -931,111 +1019,6 @@ describe("CalendarSyncService - error isolation", () => {
     });
   });
 
-  test("rescheduleBooking: passes correct bookingMeta flags", async () => {
-    const booking = makeBooking();
-    const event = makeEvent({
-      start: new Date("2024-01-20T14:00:00Z"),
-      end: new Date("2024-01-20T15:00:00Z"),
-    });
-
-    mockBookingRepository.findBookingByUidWithEventType = vi.fn().mockResolvedValue(booking);
-
-    await service.rescheduleBooking(event, mockSelectedCalendar.userId);
-
-    expect(mockCreateBooking).toHaveBeenCalledWith(
-      expect.objectContaining({
-        bookingMeta: {
-          skipCalendarSyncTaskCreation: true,
-          skipAvailabilityCheck: true,
-          skipEventLimitsCheck: true,
-          impersonatedByUserUuid: null,
-        },
-      })
-    );
-  });
-
-  test("rescheduleBooking: skips booking without eventTypeId", async () => {
-    const booking = makeBooking({ eventTypeId: null });
-    const event = makeEvent();
-
-    mockBookingRepository.findBookingByUidWithEventType = vi.fn().mockResolvedValue(booking);
-
-    await service.rescheduleBooking(event, mockSelectedCalendar.userId);
-
-    expect(mockCreateBooking).not.toHaveBeenCalled();
-  });
-
-  test("cancelBooking: skips when calendar owner is not the booking host", async () => {
-    const booking = makeBooking({ uid: "booking-uid-123", userId: 99 });
-    const event = makeEvent({ iCalUID: "booking-uid-123@cal.com", status: "cancelled" });
-
-    mockBookingRepository.findBookingByUidWithEventType = vi.fn().mockResolvedValue(booking);
-
-    // calendarUserId (42) !== booking.userId (99) → skip
-    await service.cancelBooking(event, mockSelectedCalendar.userId);
-
-    expect(mockHandleCancelBooking).not.toHaveBeenCalled();
-  });
-
-  test("rescheduleBooking: skips when calendar owner is not the booking host", async () => {
-    const booking = makeBooking({ uid: "booking-uid-123", userId: 99 });
-    const event = makeEvent({
-      iCalUID: "booking-uid-123@cal.com",
-      start: new Date("2024-01-20T14:00:00Z"),
-    });
-
-    mockBookingRepository.findBookingByUidWithEventType = vi.fn().mockResolvedValue(booking);
-
-    // calendarUserId (42) !== booking.userId (99) → skip
-    await service.rescheduleBooking(event, mockSelectedCalendar.userId);
-
-    expect(mockCreateBooking).not.toHaveBeenCalled();
-  });
-
-  test("cancelBooking: skips booking without userId", async () => {
-    const booking = makeBooking({ userId: null });
-    const event = makeEvent({ iCalUID: "booking-uid-123@cal.com", status: "cancelled" });
-
-    mockBookingRepository.findBookingByUidWithEventType = vi.fn().mockResolvedValue(booking);
-
-    await service.cancelBooking(event, mockSelectedCalendar.userId);
-
-    expect(mockHandleCancelBooking).not.toHaveBeenCalled();
-  });
-
-  test("cancelBooking: skips booking without userPrimaryEmail", async () => {
-    const booking = makeBooking({ userPrimaryEmail: null });
-    const event = makeEvent({ iCalUID: "booking-uid-123@cal.com", status: "cancelled" });
-
-    mockBookingRepository.findBookingByUidWithEventType = vi.fn().mockResolvedValue(booking);
-
-    await service.cancelBooking(event, mockSelectedCalendar.userId);
-
-    expect(mockHandleCancelBooking).not.toHaveBeenCalled();
-  });
-
-  test("handleEvents: correctly routes cancelled vs non-cancelled events", async () => {
-    const cancelledEvent = makeEvent({ iCalUID: "uid-a@cal.com", status: "cancelled" });
-    const confirmedEvent = makeEvent({ iCalUID: "uid-b@cal.com", status: "confirmed" });
-
-    const bookingA = makeBooking({ uid: "uid-a" });
-    const bookingB = makeBooking({ uid: "uid-b" });
-
-    mockBookingRepository.findBookingByUidWithEventType = vi
-      .fn()
-      .mockImplementation(({ bookingUid }: { bookingUid: string }) => {
-        if (bookingUid === "uid-a") return Promise.resolve(bookingA);
-        if (bookingUid === "uid-b") return Promise.resolve(bookingB);
-        return Promise.resolve(null);
-      });
-
-    await service.handleEvents(mockSelectedCalendar, [cancelledEvent, confirmedEvent]);
-
-    // "cancelled" → cancelBooking, "confirmed" → rescheduleBooking
-    expect(mockHandleCancelBooking).toHaveBeenCalledTimes(1);
-    expect(mockCreateBooking).toHaveBeenCalledTimes(1);
-  });
-
   test("handleEvents: non-cancelled statuses (tentative, confirmed) all route to reschedule", async () => {
     const tentativeEvent = makeEvent({ iCalUID: "uid-t@cal.com", status: "tentative" });
     const bookingT = makeBooking({ uid: "uid-t" });
@@ -1044,7 +1027,6 @@ describe("CalendarSyncService - error isolation", () => {
 
     await service.handleEvents(mockSelectedCalendar, [tentativeEvent]);
 
-    expect(mockHandleCancelBooking).not.toHaveBeenCalled();
     expect(mockCreateBooking).toHaveBeenCalledTimes(1);
   });
 });

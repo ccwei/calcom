@@ -10,8 +10,6 @@ import type {
 import type { CalendarCacheEventService } from "@calcom/features/calendar-subscription/lib/cache/CalendarCacheEventService";
 import type { CalendarSyncService } from "@calcom/features/calendar-subscription/lib/sync/CalendarSyncService";
 import type { IFeatureRepository } from "@calcom/features/flags/repositories/PrismaFeatureRepository";
-import type { ITeamFeatureRepository } from "@calcom/features/flags/repositories/PrismaTeamFeatureRepository";
-import type { IUserFeatureRepository } from "@calcom/features/flags/repositories/PrismaUserFeatureRepository";
 import type { ISelectedCalendarRepository } from "@calcom/features/selectedCalendar/repositories/SelectedCalendarRepository.interface";
 import logger from "@calcom/lib/logger";
 import type { SelectedCalendar } from "@calcom/prisma/client";
@@ -30,10 +28,6 @@ export class CalendarSubscriptionService {
       adapterFactory: AdapterFactory;
       selectedCalendarRepository: ISelectedCalendarRepository;
       featureRepository: IFeatureRepository;
-      teamFeatureRepository: ITeamFeatureRepository;
-      userFeatureRepository: IUserFeatureRepository & {
-        checkIfUserHasFeature: (userId: number, slug: string) => Promise<boolean>;
-      };
       calendarCacheEventService: CalendarCacheEventService;
       calendarSyncService: CalendarSyncService;
     }
@@ -255,11 +249,7 @@ export class CalendarSubscriptionService {
       return result;
     }
 
-    const [cacheEnabled, syncEnabled, cacheEnabledForUser] = await Promise.all([
-      this.isCacheEnabled(),
-      this.isSyncEnabled(),
-      this.isCacheEnabledForUser(selectedCalendar.userId),
-    ]);
+    const [cacheEnabled, syncEnabled] = await Promise.all([this.isCacheEnabled(), this.isSyncEnabled()]);
 
     if (!cacheEnabled && !syncEnabled) {
       log.info("Cache and sync are globally disabled", {
@@ -322,7 +312,7 @@ export class CalendarSubscriptionService {
       syncErrorCount: 0,
     });
 
-    if (cacheEnabled && cacheEnabledForUser) {
+    if (cacheEnabled) {
       log.debug("Caching events", { count: events.items.length });
       await this.deps.calendarCacheEventService.handleEvents(selectedCalendar, events.items);
       result.eventsCached = events.items.length;
@@ -345,7 +335,7 @@ export class CalendarSubscriptionService {
     metrics.distribution("calendar.subscription.processEvents.duration_ms", performance.now() - startTime, {
       attributes: {
         provider: selectedCalendar.integration,
-        cache: cacheEnabled && cacheEnabledForUser ? "on" : "off",
+        cache: cacheEnabled ? "on" : "off",
         sync: syncEnabled ? "on" : "off",
       },
     });
@@ -393,16 +383,13 @@ export class CalendarSubscriptionService {
    */
   // biome-ignore lint/nursery/useExplicitType: return type is void
   async checkForNewSubscriptions() {
-    if (!(await this.isCacheEnabled())) {
+    const [cacheEnabled, syncEnabled] = await Promise.all([this.isCacheEnabled(), this.isSyncEnabled()]);
+    if (!cacheEnabled && !syncEnabled) {
       return;
     }
-    const teamIds = await this.deps.teamFeatureRepository.getTeamsWithFeatureEnabled(
-      CalendarSubscriptionService.CALENDAR_SUBSCRIPTION_CACHE_FEATURE
-    );
     const rows = await this.deps.selectedCalendarRepository.findNextSubscriptionBatch({
       take: 100,
       integrations: this.deps.adapterFactory.getProviders(),
-      teamIds,
       genericCalendarSuffixes: this.deps.adapterFactory.getGenericCalendarSuffixes(),
     });
     log.debug("checkForNewSubscriptions", { count: rows.length });
@@ -420,14 +407,11 @@ export class CalendarSubscriptionService {
   }
 
   /**
-   * Check if cache is enabled for user
-   * @returns true if cache is enabled
+   * Check if cache is enabled for user.
+   * Dadacal uses global flags only — when cache is globally enabled, all users get it.
    */
-  async isCacheEnabledForUser(userId: number): Promise<boolean> {
-    return this.deps.userFeatureRepository.checkIfUserHasFeature(
-      userId,
-      CalendarSubscriptionService.CALENDAR_SUBSCRIPTION_CACHE_FEATURE
-    );
+  async isCacheEnabledForUser(_userId: number): Promise<boolean> {
+    return this.isCacheEnabled();
   }
 
   /**
