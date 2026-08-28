@@ -1,50 +1,48 @@
 import prismaMock from "@calcom/testing/lib/__mocks__/prisma";
-
 import {
+  BookingLocations,
   createBookingScenario,
+  getBooker,
   getDate,
+  getDefaultBookingFields,
   getGoogleCalendarCredential,
   getGoogleMeetCredential,
-  TestData,
-  getOrganizer,
-  getBooker,
-  getScenarioData,
-  mockSuccessfulVideoMeetingCreation,
-  mockCalendarToHaveNoBusySlots,
-  mockCalendarToCrashOnUpdateEvent,
-  BookingLocations,
-  getMockBookingReference,
   getMockBookingAttendee,
+  getMockBookingReference,
   getMockFailingAppStatus,
   getMockPassingAppStatus,
-  getDefaultBookingFields,
+  getOrganizer,
+  getScenarioData,
+  getZoomAppCredential,
+  mockCalendarToCrashOnUpdateEvent,
+  mockCalendarToHaveNoBusySlots,
+  mockSuccessfulVideoMeetingCreation,
+  TestData,
 } from "@calcom/testing/lib/bookingScenario/bookingScenario";
-import {
-  expectWorkflowToBeTriggered,
-  expectBookingToBeInDatabase,
-  expectBookingRescheduledWebhookToHaveBeenFired,
-  expectSuccessfulBookingRescheduledEmails,
-  expectSuccessfulCalendarEventUpdationInCalendar,
-  expectSuccessfulVideoMeetingUpdationInCalendar,
-  expectBookingInDBToBeRescheduledFromTo,
-  expectBookingRequestedEmails,
-  expectBookingRequestedWebhookToHaveBeenFired,
-  expectSuccessfulCalendarEventDeletionInCalendar,
-  expectSuccessfulVideoMeetingDeletionInCalendar,
-  expectSuccessfulRoundRobinReschedulingEmails,
-} from "@calcom/testing/lib/bookingScenario/expects";
-import { getMockRequestDataForBooking } from "@calcom/testing/lib/bookingScenario/getMockRequestDataForBooking";
-import { setupAndTeardown } from "@calcom/testing/lib/bookingScenario/setupAndTeardown";
-
-import { describe, expect, beforeEach } from "vitest";
-
+import process from "node:process";
 import { appStoreMetadata } from "@calcom/app-store/apps.metadata.generated";
 import { WEBAPP_URL } from "@calcom/lib/constants";
 import logger from "@calcom/lib/logger";
 import { resetTestSMS } from "@calcom/lib/testSMS";
 import { BookingStatus, SchedulingType } from "@calcom/prisma/enums";
+import {
+  expectBookingInDBToBeRescheduledFromTo,
+  expectBookingRequestedEmails,
+  expectBookingRequestedWebhookToHaveBeenFired,
+  expectBookingRescheduledWebhookToHaveBeenFired,
+  expectBookingToBeInDatabase,
+  expectSuccessfulBookingRescheduledEmails,
+  expectSuccessfulCalendarEventDeletionInCalendar,
+  expectSuccessfulCalendarEventUpdationInCalendar,
+  expectSuccessfulRoundRobinReschedulingEmails,
+  expectSuccessfulVideoMeetingDeletionInCalendar,
+  expectSuccessfulVideoMeetingUpdationInCalendar,
+  expectWorkflowToBeTriggered,
+} from "@calcom/testing/lib/bookingScenario/expects";
+import { getMockRequestDataForBooking } from "@calcom/testing/lib/bookingScenario/getMockRequestDataForBooking";
+import { setupAndTeardown } from "@calcom/testing/lib/bookingScenario/setupAndTeardown";
 import { test } from "@calcom/testing/lib/fixtures/fixtures";
-
+import { beforeEach, describe, expect } from "vitest";
 import { getNewBookingHandler } from "./getNewBookingHandler";
 
 // Local test runs sometime gets too slow
@@ -2702,6 +2700,162 @@ describe("handleNewBooking", () => {
 
         // Valid reference should have uid
         expect(reference.uid).toBe("UPDATED_EVENT_ID");
+      },
+      timeout
+    );
+
+    test(
+      `should reschedule a booking with Zoom video and update the videoCallData and booking references with the new Zoom URL`,
+      async ({ emails }) => {
+        const handleNewBooking = getNewBookingHandler();
+        const booker = getBooker({
+          email: "booker@example.com",
+          name: "Booker",
+        });
+
+        const organizer = getOrganizer({
+          name: "Organizer",
+          email: "organizer@example.com",
+          id: 101,
+          schedules: [TestData.schedules.IstWorkHours],
+          credentials: [getGoogleCalendarCredential(), getZoomAppCredential()],
+          selectedCalendars: [TestData.selectedCalendars.google],
+        });
+
+        const { dateString: plus1DateString } = getDate({ dateIncrement: 1 });
+        const uidOfBookingToBeRescheduled = "zoomRescheduleTestUid123";
+        const iCalUID = `${uidOfBookingToBeRescheduled}@Cal.com`;
+        const oldZoomUrl = "https://us06web.zoom.us/j/84556732178?pwd=QSOUb1iYiS9OSbYbO1akW8t6CTulaY.1";
+        const newZoomUrl = "https://us06web.zoom.us/j/83436135820?pwd=u8Tj6PU7mdCwfMoNqjzGIu2Ldbp2nA.1";
+
+        await createBookingScenario(
+          getScenarioData({
+            eventTypes: [
+              {
+                id: 1,
+                slotInterval: 30,
+                length: 30,
+                users: [
+                  {
+                    id: 101,
+                  },
+                ],
+                locations: [
+                  {
+                    type: BookingLocations.ZoomVideo,
+                  },
+                ],
+              },
+            ],
+            bookings: [
+              {
+                uid: uidOfBookingToBeRescheduled,
+                eventTypeId: 1,
+                status: BookingStatus.ACCEPTED,
+                startTime: `${plus1DateString}T05:00:00.000Z`,
+                endTime: `${plus1DateString}T05:30:00.000Z`,
+                metadata: {
+                  videoCallUrl: oldZoomUrl,
+                },
+                references: [
+                  {
+                    type: appStoreMetadata.zoomvideo.type,
+                    uid: "84556732178",
+                    meetingId: "84556732178",
+                    meetingPassword: "QSOUb1iYiS9OSbYbO1akW8t6CTulaY.1",
+                    meetingUrl: oldZoomUrl,
+                    credentialId: 2,
+                  },
+                  {
+                    type: appStoreMetadata.googlecalendar.type,
+                    uid: "MOCK_CALENDAR_ID",
+                    meetingId: "MOCK_CALENDAR_ID",
+                    meetingPassword: "MOCK_PASSWORD",
+                    meetingUrl: "https://UNUSED_URL",
+                    externalCalendarId: "MOCK_EXTERNAL_CALENDAR_ID",
+                    credentialId: 1,
+                  },
+                ],
+                attendees: [
+                  getMockBookingAttendee({
+                    id: 1,
+                    name: booker.name,
+                    email: booker.email,
+                  }),
+                ],
+                location: BookingLocations.ZoomVideo,
+                iCalUID,
+              },
+            ],
+            organizer,
+            apps: [TestData.apps["google-calendar"], TestData.apps["zoomvideo"]],
+          })
+        );
+
+        mockSuccessfulVideoMeetingCreation({
+          metadataLookupKey: "zoomvideo",
+          videoMeetingData: {
+            id: "83436135820",
+            password: "u8Tj6PU7mdCwfMoNqjzGIu2Ldbp2nA.1",
+            url: newZoomUrl,
+          },
+        });
+
+        await mockCalendarToHaveNoBusySlots("googlecalendar", {
+          update: {
+            uid: "MOCK_CALENDAR_ID",
+            iCalUID,
+          },
+        });
+
+        const mockBookingData = getMockRequestDataForBooking({
+          data: {
+            eventTypeId: 1,
+            rescheduleUid: uidOfBookingToBeRescheduled,
+            start: `${plus1DateString}T06:00:00.000Z`,
+            end: `${plus1DateString}T06:30:00.000Z`,
+            responses: {
+              email: booker.email,
+              name: booker.name,
+              location: { optionValue: "", value: BookingLocations.ZoomVideo },
+            },
+          },
+        });
+
+        const createdBooking = await handleNewBooking({
+          bookingData: mockBookingData,
+        });
+
+        // 1. Verify the reschedule email sent to booker contains the NEW Zoom URL
+        expect(emails).toHaveEmail(
+          {
+            titleTag: "event_type_has_been_rescheduled_on_time_date",
+            to: `${booker.name} <${booker.email}>`,
+            links: [
+              {
+                href: newZoomUrl,
+                text: newZoomUrl,
+              },
+            ],
+          },
+          `${booker.name} <${booker.email}>`
+        );
+
+        // 2. Verify the new booking in DB has updated references with the new Zoom URL and meetingId
+        const newBooking = await prismaMock.booking.findFirst({
+          where: {
+            uid: createdBooking.uid,
+          },
+          include: {
+            references: true,
+          },
+        });
+
+        const zoomRef = newBooking?.references.find((ref) => ref.type === "zoom_video");
+        expect(zoomRef).toBeDefined();
+        expect(zoomRef?.meetingUrl).toBe(newZoomUrl);
+        expect(zoomRef?.meetingId).toBe("83436135820");
+        expect(zoomRef?.uid).toBe("83436135820");
       },
       timeout
     );
