@@ -1,16 +1,15 @@
-import { cloneDeep } from "lodash";
-
 import { sendRescheduledEmailsAndSMS } from "@calcom/emails/email-manager";
 import type EventManager from "@calcom/features/bookings/lib/EventManager";
+import { CalendarEventBuilder } from "@calcom/features/CalendarEventBuilder";
 import prisma from "@calcom/prisma";
 import type { AdditionalInformation, AppsStatus } from "@calcom/types/Calendar";
-
-import { CalendarEventBuilder } from "@calcom/features/CalendarEventBuilder";
+import { cloneDeep } from "lodash";
 import type { Booking } from "../../../handleNewBooking/createBooking";
 import { findBookingQuery } from "../../../handleNewBooking/findBookingQuery";
+import { getVideoCallDetails } from "../../../handleNewBooking/getVideoCallDetails";
 import { handleAppsStatus } from "../../../handleNewBooking/handleAppsStatus";
 import type { createLoggerWithEventDetails } from "../../../handleNewBooking/logger";
-import type { SeatedBooking, RescheduleSeatedBookingObject } from "../../types";
+import type { RescheduleSeatedBookingObject, SeatedBooking } from "../../types";
 
 async function updateBooking({
   bookingId,
@@ -67,9 +66,7 @@ const moveSeatedBookingToNewTimeSlot = async (
     cancellationReason: rescheduleReason,
   });
 
-  evt = CalendarEventBuilder.fromEvent(evt)
-    .withVideoCallDataFromReferences(newBooking.references)
-    .build();
+  evt = CalendarEventBuilder.fromEvent(evt).withVideoCallDataFromReferences(newBooking.references).build();
 
   const copyEvent = cloneDeep(evt);
 
@@ -93,7 +90,18 @@ const moveSeatedBookingToNewTimeSlot = async (
     };
     loggerWithEventDetails.error(`Booking ${organizerUser.name} failed`, JSON.stringify({ error, results }));
   } else {
-    const metadata: AdditionalInformation = {};
+    const { metadata: videoMetadata, updatedVideoEvent } = getVideoCallDetails({
+      results,
+    });
+    if (updatedVideoEvent) {
+      evt.videoCallData = {
+        type: updatedVideoEvent.type || evt.videoCallData?.type || "",
+        id: updatedVideoEvent.id ? String(updatedVideoEvent.id) : evt.videoCallData?.id,
+        password: updatedVideoEvent.password ?? evt.videoCallData?.password,
+        url: updatedVideoEvent.url || evt.videoCallData?.url || "",
+      };
+    }
+    const metadata: AdditionalInformation = { ...videoMetadata };
     if (results.length) {
       // TODO: Handle created event metadata more elegantly
       const [updatedEvent] = Array.isArray(results[0].updatedEvent)

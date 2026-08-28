@@ -1,17 +1,16 @@
-import { cloneDeep } from "lodash";
-import { uuid } from "short-uuid";
-
 import { sendRescheduledEmailsAndSMS } from "@calcom/emails/email-manager";
 import type EventManager from "@calcom/features/bookings/lib/EventManager";
+import { CalendarEventBuilder } from "@calcom/features/CalendarEventBuilder";
 import { ErrorCode } from "@calcom/lib/errorCodes";
 import { HttpError } from "@calcom/lib/http-error";
 import prisma from "@calcom/prisma";
 import { BookingStatus } from "@calcom/prisma/enums";
-
-import { CalendarEventBuilder } from "@calcom/features/CalendarEventBuilder";
+import { cloneDeep } from "lodash";
+import { uuid } from "short-uuid";
 import { findBookingQuery } from "../../../handleNewBooking/findBookingQuery";
+import { getVideoCallDetails } from "../../../handleNewBooking/getVideoCallDetails";
 import type { createLoggerWithEventDetails } from "../../../handleNewBooking/logger";
-import type { SeatedBooking, RescheduleSeatedBookingObject, NewTimeSlotBooking } from "../../types";
+import type { NewTimeSlotBooking, RescheduleSeatedBookingObject, SeatedBooking } from "../../types";
 
 const combineTwoSeatedBookings = async (
   rescheduleSeatedBookingObject: RescheduleSeatedBookingObject,
@@ -128,6 +127,19 @@ const combineTwoSeatedBookings = async (
 
   const results = updateManager.results;
 
+  const { updatedVideoEvent } = getVideoCallDetails({
+    results,
+  });
+
+  if (updatedVideoEvent) {
+    evt.videoCallData = {
+      type: updatedVideoEvent.type || evt.videoCallData?.type || "",
+      id: updatedVideoEvent.id ? String(updatedVideoEvent.id) : evt.videoCallData?.id,
+      password: updatedVideoEvent.password ?? evt.videoCallData?.password,
+      url: updatedVideoEvent.url || evt.videoCallData?.url || "",
+    };
+  }
+
   const calendarResult = results.find((result) => result.type.includes("_calendar"));
 
   evt.iCalUID = Array.isArray(calendarResult?.updatedEvent)
@@ -139,7 +151,7 @@ const combineTwoSeatedBookings = async (
     loggerWithEventDetails.debug("Emails: Sending reschedule emails - handleSeats");
     await sendRescheduledEmailsAndSMS(
       {
-        ...copyEvent,
+        ...cloneDeep(evt),
         additionalNotes, // Resets back to the additionalNote input and not the override value
         cancellationReason: `$RCH$${rescheduleReason ? rescheduleReason : ""}`, // Removable code prefix to differentiate cancellation from rescheduling for email
       },

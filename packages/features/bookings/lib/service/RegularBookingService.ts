@@ -2158,13 +2158,26 @@ async function handler(
     // to the default description when we are sending the emails.
     evt.description = eventType.description;
 
-    const { metadata: videoMetadata, videoCallUrl: _videoCallUrl } = getVideoCallDetails({
+    const {
+      metadata: videoMetadata,
+      videoCallUrl: _videoCallUrl,
+      updatedVideoEvent,
+    } = getVideoCallDetails({
       results,
     });
 
     let metadata: AdditionalInformation = {};
     metadata = videoMetadata;
     videoCallUrl = _videoCallUrl;
+
+    if (updatedVideoEvent) {
+      evt.videoCallData = {
+        type: updatedVideoEvent.type || evt.videoCallData?.type || "",
+        id: updatedVideoEvent.id ? String(updatedVideoEvent.id) : evt.videoCallData?.id,
+        password: updatedVideoEvent.password ?? evt.videoCallData?.password,
+        url: updatedVideoEvent.url || evt.videoCallData?.url || "",
+      };
+    }
 
     const isThereAnIntegrationError = results && results.some((res) => !res.success);
 
@@ -2214,6 +2227,13 @@ async function handler(
               ...googleMeetResult,
               success: true,
             });
+
+            evt.videoCallData = {
+              type: "google_meet_video",
+              id: "",
+              password: "",
+              url: googleHangoutLink,
+            };
 
             // Add google_meet to referencesToCreate in the same index as google_calendar
             updateManager.referencesToCreate[googleCalIndex] = {

@@ -2,18 +2,17 @@ import { metadata as GoogleMeetMetadata } from "@calcom/app-store/googlevideo/_m
 import { MeetLocationType } from "@calcom/app-store/locations";
 import getICalUID from "@calcom/emails/lib/getICalUID";
 import { BookingReferenceRepository } from "@calcom/features/bookingReference/repositories/BookingReferenceRepository";
-import EventManager from "@calcom/features/bookings/lib/EventManager";
 import type { EventManagerInitParams } from "@calcom/features/bookings/lib/EventManager";
-import { getAllCredentialsIncludeServiceAccountKey } from "@calcom/features/bookings/lib/getAllCredentialsForUsersOnEvent/getAllCredentials";
+import EventManager from "@calcom/features/bookings/lib/EventManager";
 import type { EventType } from "@calcom/features/bookings/lib/getAllCredentialsForUsersOnEvent/getAllCredentials";
+import { getAllCredentialsIncludeServiceAccountKey } from "@calcom/features/bookings/lib/getAllCredentialsForUsersOnEvent/getAllCredentials";
 import { getVideoCallDetails } from "@calcom/features/bookings/lib/handleNewBooking/getVideoCallDetails";
+import { getTranslation } from "@calcom/i18n/server";
 import { getVideoCallUrlFromCalEvent } from "@calcom/lib/CalEventParser";
 import logger from "@calcom/lib/logger";
-import { getTranslation } from "@calcom/i18n/server";
 import { prisma } from "@calcom/prisma";
-import type { DestinationCalendar } from "@calcom/prisma/client";
-import type { Prisma } from "@calcom/prisma/client";
-import type { CalendarEvent, AdditionalInformation } from "@calcom/types/Calendar";
+import type { DestinationCalendar, Prisma } from "@calcom/prisma/client";
+import type { AdditionalInformation, CalendarEvent } from "@calcom/types/Calendar";
 
 type InitParams = {
   user: {
@@ -88,13 +87,26 @@ export const handleRescheduleEventManager = async ({
     throw new Error("Failed to set video conferencing link, but the meeting has been rescheduled");
   }
 
-  const { metadata: videoMetadata, videoCallUrl: _videoCallUrl } = getVideoCallDetails({
+  const {
+    metadata: videoMetadata,
+    videoCallUrl: _videoCallUrl,
+    updatedVideoEvent,
+  } = getVideoCallDetails({
     results: results,
   });
 
   let videoCallUrl = _videoCallUrl;
   let metadata: AdditionalInformation = {};
   metadata = videoMetadata;
+
+  if (updatedVideoEvent) {
+    evt.videoCallData = {
+      type: updatedVideoEvent.type || evt.videoCallData?.type || "",
+      id: updatedVideoEvent.id ? String(updatedVideoEvent.id) : evt.videoCallData?.id,
+      password: updatedVideoEvent.password ?? evt.videoCallData?.password,
+      url: updatedVideoEvent.url || evt.videoCallData?.url || "",
+    };
+  }
   if (results.length) {
     // Handle Google Meet results
     if (bookingLocation === MeetLocationType) {
@@ -131,6 +143,13 @@ export const handleRescheduleEventManager = async ({
           ...googleMeetResult,
           success: true,
         });
+
+        evt.videoCallData = {
+          type: "google_meet_video",
+          id: "",
+          password: "",
+          url: googleHangoutLink,
+        };
 
         // Add google_meet to referencesToCreate in the same index as google_calendar
         updateManager.referencesToCreate[googleCalIndex] = {

@@ -1,10 +1,12 @@
 import type { AdditionalInformation } from "@calcom/types/Calendar";
 import type { EventResult } from "@calcom/types/EventManager";
+import type { VideoCallData } from "@calcom/types/VideoApiAdapter";
 
-type ExtraAdditionalInfo = AdditionalInformation & {
-  url?: string | undefined;
-  iCalUID?: string | undefined;
-};
+type ExtraAdditionalInfo = AdditionalInformation &
+  Partial<VideoCallData> & {
+    url?: string | undefined;
+    iCalUID?: string | undefined;
+  };
 
 type VideoResult = EventResult<ExtraAdditionalInfo>;
 
