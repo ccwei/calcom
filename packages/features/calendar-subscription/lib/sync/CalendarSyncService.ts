@@ -1,12 +1,15 @@
 import type { CreateRegularBookingData } from "@calcom/features/bookings/lib/dto/types";
 import handleCancelBooking from "@calcom/features/bookings/lib/handleCancelBooking";
-import { IdempotencyKeyService } from "@calcom/lib/idempotencyKey/idempotencyKeyService";
 import type { BookingRepository } from "@calcom/features/bookings/repositories/BookingRepository";
 import type { CalendarSubscriptionEventItem } from "@calcom/features/calendar-subscription/lib/CalendarSubscriptionPort.interface";
 import { APP_NAME } from "@calcom/lib/constants";
+import { ErrorCode } from "@calcom/lib/errorCodes";
+import { HttpError } from "@calcom/lib/http-error";
+import { IdempotencyKeyService } from "@calcom/lib/idempotencyKey/idempotencyKeyService";
 import logger from "@calcom/lib/logger";
 import { safeStringify } from "@calcom/lib/safeStringify";
 import type { SelectedCalendar } from "@calcom/prisma/client";
+import { BookingStatus, CreationSource } from "@calcom/prisma/enums";
 import { metrics } from "@sentry/nextjs";
 
 const log = logger.getSubLogger({ prefix: ["CalendarSyncService"] });
@@ -222,6 +225,17 @@ export class CalendarSyncService {
         return;
       }
 
+      if (booking.status === BookingStatus.CANCELLED || booking.status === BookingStatus.REJECTED) {
+        log.debug("Skipping reschedule, booking is already cancelled or rejected", {
+          bookingUid: resolvedBookingUid,
+          status: booking.status,
+        });
+        metrics.count("calendar.sync.rescheduleBooking.calls", 1, {
+          attributes: { status: "skipped", reason: "booking_already_cancelled" },
+        });
+        return;
+      }
+
       if (booking.userId !== calendarUserId) {
         log.debug("Skipping sync, calendar owner is not the booking host", {
           bookingUid: resolvedBookingUid,
@@ -280,6 +294,19 @@ export class CalendarSyncService {
         attributes: { status: "success" },
       });
     } catch (error) {
+      if (
+        (error instanceof HttpError && error.statusCode === 409) ||
+        (error instanceof Error && error.message === ErrorCode.BookingConflict)
+      ) {
+        log.info("Skipping reschedule, booking was already rescheduled concurrently", {
+          bookingUid: resolvedBookingUid,
+        });
+        metrics.count("calendar.sync.rescheduleBooking.calls", 1, {
+          attributes: { status: "skipped", reason: "already_rescheduled" },
+        });
+        return;
+      }
+
       log.error("Failed to reschedule booking from calendar sync", {
         bookingUid: resolvedBookingUid,
         error: safeStringify(error),
@@ -323,6 +350,7 @@ export const buildRescheduleBookingData = (
     language: "en",
     metadata: buildMetadataFromCalendarEvent(event),
     rescheduleUid: booking.uid,
+    creationSource: CreationSource.CALENDAR_SYNC,
     idempotencyKey: IdempotencyKeyService.generate({
       startTime: new Date(start),
       endTime: new Date(end),

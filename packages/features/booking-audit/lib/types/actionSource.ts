@@ -8,6 +8,7 @@ export const ActionSourceSchema = z.enum([
   "WEBAPP",
   "WEBHOOK",
   "MAGIC_LINK",
+  "CALENDAR_SYNC",
   "SYSTEM",
   "UNKNOWN",
 ]);
@@ -21,6 +22,7 @@ export const ValidActionSourceSchema = z.enum([
   "WEBAPP",
   "WEBHOOK",
   "MAGIC_LINK",
+  "CALENDAR_SYNC",
   "SYSTEM",
 ]);
 export type ValidActionSource = z.infer<typeof ValidActionSourceSchema>;

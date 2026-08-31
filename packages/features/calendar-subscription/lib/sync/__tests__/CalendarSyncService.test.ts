@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
-
 import type { CalendarSubscriptionEventItem } from "@calcom/features/calendar-subscription/lib/CalendarSubscriptionPort.interface";
+import { ErrorCode } from "@calcom/lib/errorCodes";
+import { HttpError } from "@calcom/lib/http-error";
 import type { BookingRepository } from "@calcom/lib/server/repository/booking";
 import type { SelectedCalendar } from "@calcom/prisma/client";
-
+import { BookingStatus, CreationSource } from "@calcom/prisma/enums";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { CalendarSyncService } from "../CalendarSyncService";
 
 const { mockHandleCancelBooking, mockCreateBooking } = vi.hoisted(() => ({
@@ -78,6 +79,7 @@ const mockBooking = {
   description: "Initial notes",
   location: "Test Location",
   smsReminderNumber: "+123456789",
+  status: BookingStatus.ACCEPTED,
   responses: {
     name: "John Doe",
     email: "john@example.com",
@@ -187,9 +189,9 @@ describe("CalendarSyncService", () => {
     });
 
     test("should process events matched via BookingReference when iCalUID does not match", async () => {
-      mockBookingRepository.findBookingUidsByCalendarReferenceUids = vi.fn().mockResolvedValue([
-        { referenceUid: mockNonCalComEvent.id, bookingUid: "test-booking-uid" },
-      ]);
+      mockBookingRepository.findBookingUidsByCalendarReferenceUids = vi
+        .fn()
+        .mockResolvedValue([{ referenceUid: mockNonCalComEvent.id, bookingUid: "test-booking-uid" }]);
       mockBookingRepository.findBookingByUidWithEventType = vi.fn().mockResolvedValue({
         ...mockBooking,
         startTime: new Date("2023-12-01T09:00:00Z"),
@@ -336,6 +338,7 @@ describe("CalendarSyncService", () => {
             calendarSubscriptionEvent: expect.any(String),
           }),
           rescheduleUid: mockBooking.uid,
+          creationSource: CreationSource.CALENDAR_SYNC,
           idempotencyKey: expect.any(String),
           responses: expect.objectContaining({
             title: "Updated summary",
@@ -493,6 +496,48 @@ describe("CalendarSyncService", () => {
       expect(mockCreateBooking).not.toHaveBeenCalled();
     });
 
+    test("should skip reschedule when booking is already cancelled or rejected", async () => {
+      const cancelledBooking = {
+        ...mockBooking,
+        status: BookingStatus.CANCELLED,
+      };
+      const eventWithDifferentStart: CalendarSubscriptionEventItem = {
+        ...mockCalComEvent,
+        start: new Date("2023-12-01T14:00:00Z"),
+        end: new Date("2023-12-01T15:00:00Z"),
+      };
+      mockBookingRepository.findBookingByUidWithEventType = vi.fn().mockResolvedValue(cancelledBooking);
+
+      await service.rescheduleBooking(eventWithDifferentStart, mockSelectedCalendar.userId);
+
+      expect(mockBookingRepository.findBookingByUidWithEventType).toHaveBeenCalledWith({
+        bookingUid: "test-booking-uid",
+      });
+      expect(mockCreateBooking).not.toHaveBeenCalled();
+    });
+
+    test("should handle conflict error gracefully when booking was already rescheduled concurrently", async () => {
+      const eventWithDifferentStart: CalendarSubscriptionEventItem = {
+        ...mockCalComEvent,
+        start: new Date("2023-12-01T14:00:00Z"),
+        end: new Date("2023-12-01T15:00:00Z"),
+      };
+      mockBookingRepository.findBookingByUidWithEventType = vi.fn().mockResolvedValue(mockBooking);
+      mockCreateBooking.mockRejectedValue(
+        new HttpError({
+          statusCode: 409,
+          message: ErrorCode.BookingConflict,
+        })
+      );
+
+      await expect(
+        service.rescheduleBooking(eventWithDifferentStart, mockSelectedCalendar.userId)
+      ).resolves.not.toThrow();
+
+      expect(mockBookingRepository.findBookingByUidWithEventType).toHaveBeenCalled();
+      expect(mockCreateBooking).toHaveBeenCalled();
+    });
+
     test("should handle rescheduling errors gracefully without throwing", async () => {
       const eventWithDifferentStart: CalendarSubscriptionEventItem = {
         ...mockCalComEvent,
@@ -503,7 +548,9 @@ describe("CalendarSyncService", () => {
       mockCreateBooking.mockRejectedValue(new Error("Rescheduling failed"));
 
       // Should not throw - errors are caught and logged
-      await expect(service.rescheduleBooking(eventWithDifferentStart, mockSelectedCalendar.userId)).resolves.not.toThrow();
+      await expect(
+        service.rescheduleBooking(eventWithDifferentStart, mockSelectedCalendar.userId)
+      ).resolves.not.toThrow();
 
       expect(mockBookingRepository.findBookingByUidWithEventType).toHaveBeenCalled();
       expect(mockCreateBooking).toHaveBeenCalled();
@@ -514,7 +561,9 @@ describe("CalendarSyncService", () => {
         .fn()
         .mockRejectedValue(new Error("DB connection failed"));
 
-      await expect(service.rescheduleBooking(mockCalComEvent, mockSelectedCalendar.userId)).resolves.not.toThrow();
+      await expect(
+        service.rescheduleBooking(mockCalComEvent, mockSelectedCalendar.userId)
+      ).resolves.not.toThrow();
 
       expect(mockBookingRepository.findBookingByUidWithEventType).toHaveBeenCalled();
       expect(mockCreateBooking).not.toHaveBeenCalled();

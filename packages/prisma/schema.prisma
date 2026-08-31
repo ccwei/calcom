@@ -53,9 +53,10 @@ enum PeriodType {
 }
 
 enum CreationSource {
-  API_V1 @map("api_v1")
-  API_V2 @map("api_v2")
-  WEBAPP @map("webapp")
+  API_V1        @map("api_v1")
+  API_V2        @map("api_v2")
+  WEBAPP        @map("webapp")
+  CALENDAR_SYNC @map("calendar_sync")
 }
 
 model Host {
@@ -2885,13 +2886,14 @@ enum BookingAuditAction {
 }
 
 enum BookingAuditSource {
-  API_V1     @map("api_v1")
-  API_V2     @map("api_v2")
-  WEBAPP     @map("webapp")
-  WEBHOOK    @map("webhook")
-  SYSTEM     @map("system")
-  MAGIC_LINK @map("magic_link")
-  UNKNOWN    @map("unknown")
+  API_V1        @map("api_v1")
+  API_V2        @map("api_v2")
+  WEBAPP        @map("webapp")
+  WEBHOOK       @map("webhook")
+  SYSTEM        @map("system")
+  MAGIC_LINK    @map("magic_link")
+  CALENDAR_SYNC @map("calendar_sync")
+  UNKNOWN       @map("unknown")
 }
 
 enum AuditActorType {

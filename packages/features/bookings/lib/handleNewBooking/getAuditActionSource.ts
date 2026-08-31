@@ -1,6 +1,6 @@
-import { CreationSource } from "@calcom/prisma/enums";
 import type { ActionSource } from "@calcom/features/booking-audit/lib/types/actionSource";
 import { criticalLogger } from "@calcom/lib/logger.server";
+import { CreationSource } from "@calcom/prisma/enums";
 
 export const getAuditActionSource = ({
   creationSource,
@@ -14,7 +14,8 @@ export const getAuditActionSource = ({
   if (
     creationSource === CreationSource.API_V1 ||
     creationSource === CreationSource.API_V2 ||
-    creationSource === CreationSource.WEBAPP
+    creationSource === CreationSource.WEBAPP ||
+    creationSource === CreationSource.CALENDAR_SYNC
   ) {
     return creationSource;
   }
