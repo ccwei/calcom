@@ -220,6 +220,29 @@ const _ensureAvailableUsers = async (
     const { oooExcludedDateRanges: dateRanges, busy: bufferedBusyTimes } = userAvailability;
     const user = eventType.users[index];
 
+    console.log(
+      "[DEBUG availability:4-ensureAvailableUsers]",
+      safeStringify({
+        mode,
+        userId: user.id,
+        eventTypeId: eventType.id,
+        bookerTimeZone: input.timeZone,
+        resolvedHostTimeZone: userAvailability.timeZone,
+        requestedSlotUtc: { start: startDateTimeUtc.toISOString(), end: endDateTimeUtc.toISOString() },
+        duration,
+        dateRanges: dateRanges.map((r) => ({
+          start: r.start.toISOString(),
+          end: r.end.toISOString(),
+        })),
+        hasDateRange: hasDateRangeForBooking(dateRanges, startDateTimeUtc, endDateTimeUtc),
+        bufferedBusyTimes: bufferedBusyTimes.map((b) => ({
+          start: b.start,
+          end: b.end,
+          source: b.source,
+        })),
+      })
+    );
+
     loggerWithEventDetails.debug(
       "calendarBusyTimes==>>>",
       JSON.stringify({ bufferedBusyTimes, dateRanges, isRecurringEvent: eventType.recurringEvent })

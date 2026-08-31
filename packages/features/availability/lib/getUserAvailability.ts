@@ -517,6 +517,42 @@ export class UserAvailabilityService {
       outOfOffice: datesOutOfOffice,
     });
 
+    console.log(
+      "[DEBUG availability:1-working-hours]",
+      safeStringify({
+        mode,
+        userId: user.id,
+        eventTypeId,
+        queryDateFromUtc: dateFrom.toISOString(),
+        queryDateToUtc: dateTo.toISOString(),
+        timezoneResolution: {
+          finalTimezone,
+          calendarTimezone,
+          scheduleId: schedule.id,
+          scheduleTimeZone: schedule.timeZone,
+          isTimezoneSet,
+          isDefaultSchedule,
+          userTimeZone: user.timeZone,
+          eventTypeTimeZone: eventType?.timeZone ?? null,
+        },
+        availability,
+        travelSchedules: travelSchedules.map((t) => ({
+          startDate: t.startDate.toISOString(),
+          endDate: t.endDate?.toISOString() ?? null,
+          timeZone: t.timeZone,
+        })),
+        datesOutOfOffice: Object.keys(datesOutOfOffice),
+        dateRangesBeforeBusySubtraction: dateRanges.map((r) => ({
+          start: r.start.toISOString(),
+          end: r.end.toISOString(),
+        })),
+        oooExcludedBeforeBusySubtraction: oooExcludedDateRanges.map((r) => ({
+          start: r.start.toISOString(),
+          end: r.end.toISOString(),
+        })),
+      })
+    );
+
     if (dateRanges.length === 0)
       return {
         busy: [],
@@ -604,6 +640,17 @@ export class UserAvailabilityService {
         mode,
       });
     } catch (error) {
+      console.log(
+        "[DEBUG availability:2-busy-fetch-FAILED]",
+        safeStringify({
+          mode,
+          userId: user.id,
+          eventTypeId,
+          silentlyHandleCalendarFailures,
+          bypassBusyCalendarTimes,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
       log.error(`Error fetching busy times for user ${username}:`, error);
       return {
         busy: [],
@@ -647,6 +694,24 @@ export class UserAvailabilityService {
 
     const dateRangesInWhichUserIsAvailable = subtract(dateRanges, formattedBusyTimes);
     const dateRangesInWhichUserIsAvailableWithoutOOO = subtract(oooExcludedDateRanges, formattedBusyTimes);
+
+    console.log(
+      "[DEBUG availability:3-after-busy-subtraction]",
+      safeStringify({
+        mode,
+        userId: user.id,
+        eventTypeId,
+        busyTimes: detailedBusyTimes.map((b) => ({
+          start: dayjs(b.start).toISOString(),
+          end: dayjs(b.end).toISOString(),
+          source: b.source,
+        })),
+        oooExcludedAfterBusySubtraction: dateRangesInWhichUserIsAvailableWithoutOOO.map((r) => ({
+          start: r.start.toISOString(),
+          end: r.end.toISOString(),
+        })),
+      })
+    );
 
     const result = {
       busy: detailedBusyTimes,
