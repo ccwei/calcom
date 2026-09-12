@@ -15,10 +15,14 @@ type AppCategoryEntry = {
   "data-testid": string;
 };
 
-const getAppCategories = (baseURL: string, useQueryParam: boolean): AppCategoryEntry[] => {
+const getAppCategories = (
+  baseURL: string,
+  useQueryParam: boolean,
+  allowedCategories?: AppCategories[]
+): AppCategoryEntry[] => {
   // Manually sorted alphabetically, but leaving "Other" at the end
   // TODO: Refactor and type with Record<AppCategories, AppCategoryEntry> to enforce consistency
-  return [
+  const categories: AppCategoryEntry[] = [
     {
       name: "analytics",
       href: getHref(baseURL, "analytics", useQueryParam),
@@ -68,6 +72,12 @@ const getAppCategories = (baseURL: string, useQueryParam: boolean): AppCategoryE
       "data-testid": "other",
     },
   ];
+
+  if (!allowedCategories?.length) {
+    return categories;
+  }
+
+  return categories.filter((category) => allowedCategories.includes(category.name));
 };
 
 export default getAppCategories;

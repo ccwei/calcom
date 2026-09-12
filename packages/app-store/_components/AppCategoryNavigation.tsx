@@ -1,6 +1,7 @@
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { useMemo } from "react";
 
+import type { AppCategories } from "@calcom/prisma/enums";
 import cs from "@calcom/ui/classNames";
 import { HorizontalTabs, VerticalTabs } from "@calcom/ui/components/navigation";
 
@@ -13,6 +14,7 @@ const AppCategoryNavigation = ({
   className,
   classNames,
   useQueryParam = false,
+  allowedCategories,
 }: {
   baseURL: string;
   children: React.ReactNode;
@@ -26,11 +28,12 @@ const AppCategoryNavigation = ({
     verticalTabsItem?: string;
   };
   useQueryParam?: boolean;
+  allowedCategories?: AppCategories[];
 }) => {
   const [animationRef] = useAutoAnimate<HTMLDivElement>();
   const appCategories = useMemo(
-    () => getAppCategories(baseURL, useQueryParam),
-    [baseURL, useQueryParam]
+    () => getAppCategories(baseURL, useQueryParam, allowedCategories),
+    [baseURL, useQueryParam, allowedCategories]
   );
 
   return (

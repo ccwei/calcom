@@ -4,9 +4,6 @@ import type { ChangeEventHandler } from "react";
 import { useState } from "react";
 
 import { AllApps } from "@calcom/web/modules/apps/components/AllApps";
-import { AppStoreCategories } from "@calcom/web/modules/apps/components/Categories";
-import { PopularAppsSlider } from "@calcom/web/modules/apps/components/PopularAppsSlider";
-import { RecentAppsSlider } from "@calcom/web/modules/apps/components/RecentAppsSlider";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import type { AppCategories } from "@calcom/prisma/enums";
 import type { AppFrontendPayload } from "@calcom/types/App";
@@ -83,13 +80,6 @@ export default function Apps({ isAdmin, categories, appStore, userAdminTeams }: 
       headerClassName="sm:hidden lg:block hidden"
       emptyStore={!appStore.length}>
       <div className="flex flex-col gap-y-8">
-        {!searchText && (
-          <>
-            <AppStoreCategories categories={categories} />
-            <PopularAppsSlider items={appStore} />
-            <RecentAppsSlider items={appStore} />
-          </>
-        )}
         <AllApps
           apps={appStore}
           searchText={searchText}
