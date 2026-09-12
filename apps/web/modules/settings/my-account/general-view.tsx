@@ -5,13 +5,11 @@ import SectionBottomActions from "@calcom/features/settings/SectionBottomActions
 import { formatLocalizedDateTime } from "@calcom/lib/dayjs";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { localeOptions } from "@calcom/lib/i18n";
-import { nameOfDay } from "@calcom/lib/weekday";
 import type { RouterOutputs } from "@calcom/trpc/react";
 import { trpc } from "@calcom/trpc/react";
 import classNames from "@calcom/ui/classNames";
 import { Button } from "@calcom/ui/components/button";
 import { Form, Label, Select } from "@calcom/ui/components/form";
-import { Icon } from "@calcom/ui/components/icon";
 import { showToast } from "@calcom/ui/components/toast";
 import { revalidateTravelSchedules } from "@calcom/web/app/cache/travelSchedule";
 import { TimezoneSelect } from "@calcom/web/modules/timezone/components/TimezoneSelect";
@@ -27,14 +25,6 @@ export type FormValues = {
     label: string;
   };
   timeZone: string;
-  timeFormat: {
-    value: number;
-    label: string | number;
-  };
-  weekStart: {
-    value: string;
-    label: string;
-  };
   travelSchedules: {
     id?: number;
     startDate: Date;
@@ -84,21 +74,6 @@ const GeneralView = ({ user, travelSchedules }: GeneralViewProps) => {
     },
   });
 
-  const timeFormatOptions = [
-    { value: 12, label: t("12_hour") },
-    { value: 24, label: t("24_hour") },
-  ];
-
-  const weekStartOptions = [
-    { value: "Sunday", label: nameOfDay(localeProp, 0) },
-    { value: "Monday", label: nameOfDay(localeProp, 1) },
-    { value: "Tuesday", label: nameOfDay(localeProp, 2) },
-    { value: "Wednesday", label: nameOfDay(localeProp, 3) },
-    { value: "Thursday", label: nameOfDay(localeProp, 4) },
-    { value: "Friday", label: nameOfDay(localeProp, 5) },
-    { value: "Saturday", label: nameOfDay(localeProp, 6) },
-  ];
-
   const formMethods = useForm<FormValues>({
     defaultValues: {
       locale: {
@@ -106,14 +81,6 @@ const GeneralView = ({ user, travelSchedules }: GeneralViewProps) => {
         label: localeOptions.find((option) => option.value === localeProp)?.label || "",
       },
       timeZone: user.timeZone || "",
-      timeFormat: {
-        value: user.timeFormat || 12,
-        label: timeFormatOptions.find((option) => option.value === user.timeFormat)?.label || 12,
-      },
-      weekStart: {
-        value: user.weekStart,
-        label: weekStartOptions.find((option) => option.value === user.weekStart)?.label || "",
-      },
       travelSchedules:
         travelSchedules.map((schedule) => {
           return {
@@ -144,8 +111,6 @@ const GeneralView = ({ user, travelSchedules }: GeneralViewProps) => {
             mutation.mutate({
               ...values,
               locale: values.locale.value,
-              timeFormat: values.timeFormat.value,
-              weekStart: values.weekStart.value,
             });
           }}>
           <div className="border-subtle border-x border-y-0 px-4 py-8 sm:px-6">
@@ -253,47 +218,6 @@ const GeneralView = ({ user, travelSchedules }: GeneralViewProps) => {
                 </Button>
               </div>
             )}
-
-            <Controller
-              name="timeFormat"
-              control={formMethods.control}
-              render={({ field: { value } }) => (
-                <>
-                  <Label className="text-emphasis mt-6">
-                    <>{t("time_format")}</>
-                  </Label>
-                  <Select
-                    value={value}
-                    options={timeFormatOptions}
-                    onChange={(event) => {
-                      if (event) formMethods.setValue("timeFormat", { ...event }, { shouldDirty: true });
-                    }}
-                  />
-                </>
-              )}
-            />
-            <div className="text-gray text-subtle mt-2 flex items-center text-xs">
-              <Icon name="info" className="mr-2" />
-              {t("timeformat_profile_hint")}
-            </div>
-            <Controller
-              name="weekStart"
-              control={formMethods.control}
-              render={({ field: { value } }) => (
-                <>
-                  <Label className="text-emphasis mt-6">
-                    <>{t("start_of_week")}</>
-                  </Label>
-                  <Select
-                    value={value}
-                    options={weekStartOptions}
-                    onChange={(event) => {
-                      if (event) formMethods.setValue("weekStart", { ...event }, { shouldDirty: true });
-                    }}
-                  />
-                </>
-              )}
-            />
           </div>
 
           <SectionBottomActions align="end">
