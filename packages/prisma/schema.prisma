@@ -450,13 +450,13 @@ model User {
   // the location where the events will end up
   destinationCalendar DestinationCalendar?
   // participate in dynamic group booking or not
-  allowDynamicBooking Boolean?             @default(true)
+  allowDynamicBooking Boolean?             @default(false)
 
   // participate in SEO indexing or not
-  allowSEOIndexing Boolean? @default(true)
+  allowSEOIndexing Boolean? @default(false)
 
   // receive monthly digest email for teams or not
-  receiveMonthlyDigestEmail       Boolean? @default(true)
+  receiveMonthlyDigestEmail       Boolean? @default(false)
   // require email verification when someone books using your email
   requiresBookerEmailVerification Boolean? @default(false)
 
