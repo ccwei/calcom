@@ -1,16 +1,11 @@
 "use client";
 
-import { checkAdminOrOwner } from "@calcom/features/auth/lib/checkAdminOrOwner";
 import type { OrganizationBranding } from "@calcom/features/ee/organizations/context/provider";
 import { useOrgBranding } from "@calcom/features/ee/organizations/context/provider";
-import {
-  HAS_ORG_OPT_IN_FEATURES,
-  HAS_TEAM_OPT_IN_FEATURES,
-  HAS_USER_OPT_IN_FEATURES,
-} from "@calcom/features/feature-opt-in/config";
+import { HAS_ORG_OPT_IN_FEATURES } from "@calcom/features/feature-opt-in/config";
 import type { TeamFeatures } from "@calcom/features/flags/config";
 import { useIsFeatureEnabledForTeam } from "@calcom/features/flags/hooks/useIsFeatureEnabledForTeam";
-import { HOSTED_CAL_FEATURES, IS_CALCOM, WEBAPP_URL } from "@calcom/lib/constants";
+import { IS_CALCOM, WEBAPP_URL } from "@calcom/lib/constants";
 import { getPlaceholderAvatar } from "@calcom/lib/defaultAvatarImage";
 import { getUserAvatarUrl } from "@calcom/lib/getAvatarUrl";
 import { useCompatSearchParams } from "@calcom/lib/hooks/useCompatSearchParams";
@@ -64,29 +59,10 @@ const getTabs = (orgBranding: OrganizationBranding | null) => {
           trackingMetadata: { section: "my_account", page: "conferencing" },
         },
         {
-          name: "appearance",
-          href: "/settings/my-account/appearance",
-          trackingMetadata: { section: "my_account", page: "appearance" },
-        },
-        {
           name: "out_of_office",
           href: "/settings/my-account/out-of-office",
           trackingMetadata: { section: "my_account", page: "out_of_office" },
         },
-        {
-          name: "push_notifications",
-          href: "/settings/my-account/push-notifications",
-          trackingMetadata: { section: "my_account", page: "push_notifications" },
-        },
-        ...(HAS_USER_OPT_IN_FEATURES
-          ? [
-            {
-              name: "features",
-              href: "/settings/my-account/features",
-              trackingMetadata: { section: "my_account", page: "features" },
-            },
-          ]
-          : []),
         // TODO
         // { name: "referrals", href: "/settings/my-account/referrals" },
       ],
@@ -102,63 +78,10 @@ const getTabs = (orgBranding: OrganizationBranding | null) => {
           trackingMetadata: { section: "security", page: "password" },
         },
         {
-          name: "impersonation",
-          href: "/settings/security/impersonation",
-          trackingMetadata: { section: "security", page: "impersonation" },
-        },
-        {
           name: "2fa_auth",
           href: "/settings/security/two-factor-auth",
           trackingMetadata: { section: "security", page: "2fa_auth" },
         },
-        {
-          name: "compliance",
-          href: "/settings/security/compliance",
-          trackingMetadata: { section: "security", page: "compliance" },
-        },
-      ],
-    },
-    {
-      name: "billing",
-      href: "/settings/billing",
-      icon: "credit-card",
-      children: [
-        {
-          name: "manage_billing",
-          href: "/settings/billing",
-          trackingMetadata: { section: "billing", page: "manage_billing" },
-        },
-      ],
-    },
-    {
-      name: "developer",
-      href: "/settings/developer",
-      icon: "terminal",
-      children: [
-        //
-        {
-          name: "webhooks",
-          href: "/settings/developer/webhooks",
-          trackingMetadata: { section: "developer", page: "webhooks" },
-        },
-        {
-          name: "oAuth",
-          href: "/settings/developer/oauth",
-          trackingMetadata: { section: "developer", page: "oauth_clients" },
-        },
-        {
-          name: "api_keys",
-          href: "/settings/developer/api-keys",
-          trackingMetadata: { section: "developer", page: "api_keys" },
-        },
-        {
-          name: "api_docs",
-          href: "https://cal.com/docs/api-reference/v2/introduction",
-          isExternalLink: true,
-          trackingMetadata: { section: "developer", page: "api_docs" },
-        },
-        // TODO: Add profile level for embeds
-        // { name: "embeds", href: "/v2/settings/developer/embeds" },
       ],
     },
     {
@@ -220,12 +143,6 @@ const getTabs = (orgBranding: OrganizationBranding | null) => {
           ]
           : []),
       ],
-    },
-    {
-      name: "teams",
-      href: "/teams",
-      icon: "users",
-      children: [],
     },
     {
       name: "other_teams",
@@ -309,16 +226,6 @@ const getTabs = (orgBranding: OrganizationBranding | null) => {
   ];
 
   for (const tab of tabs) {
-    if (tab.name === "security" && !HOSTED_CAL_FEATURES) {
-      tab.children?.push({
-        name: "sso_configuration",
-        href: "/settings/security/sso",
-        trackingMetadata: { section: "security", page: "sso_configuration" },
-      });
-      // TODO: Enable dsync for self hosters
-      // tab.children?.push({ name: "directory_sync", href: "/settings/security/dsync" });
-    }
-
     if (tab.name === "admin" && IS_CALCOM) {
       tab.children?.push({
         name: "create_org",
@@ -452,11 +359,6 @@ const useTabs = ({
           (childTab) => childTab.href !== "/settings/security/two-factor-auth"
         );
         return { ...tab, children: filtered };
-      } else if (tab.href === "/settings/developer") {
-        const filtered = tab?.children?.filter(
-          (childTab) => permissions?.canUpdateOrganization || childTab.name !== "api_docs"
-        );
-        return { ...tab, children: filtered };
       }
       return tab;
     });
@@ -495,236 +397,6 @@ interface SettingsSidebarContainerProps {
   teamFeatures?: Record<number, TeamFeatures>;
   permissions?: SettingsPermissions;
 }
-
-const TeamRolesNavItem = ({
-  team,
-  teamFeatures,
-}: {
-  team: { id: number; parentId?: number | null };
-  teamFeatures?: Record<number, TeamFeatures>;
-}) => {
-  const { t } = useLocale();
-
-  // Always call the hook first (Rules of Hooks)
-  const isPbacEnabled = useIsFeatureEnabledForTeam({
-    teamFeatures,
-    teamId: team.parentId || 0, // Use 0 as fallback when no parentId
-    feature: "pbac",
-  });
-
-  // For sub-teams with PBAC-enabled parent org: show functional roles page
-  if (team.parentId && isPbacEnabled) {
-    return (
-      <VerticalTabItem
-        name={t("roles_and_permissions")}
-        href={`/settings/teams/${team.id}/roles`}
-        trackingMetadata={{ section: "team", page: "roles_and_permissions", teamId: team.id }}
-        textClassNames="px-3 text-emphasis font-medium text-sm"
-        disableChevron
-      />
-    );
-  }
-
-  // For standalone teams (not in an org): show upgrade banner page
-  if (!team.parentId) {
-    return (
-      <VerticalTabItem
-        name={t("roles_and_permissions")}
-        href={`/settings/teams/${team.id}/roles`}
-        trackingMetadata={{ section: "team", page: "roles_and_permissions", teamId: team.id }}
-        textClassNames="px-3 text-emphasis font-medium text-sm"
-        className="px-2! me-5 h-7 w-auto"
-        disableChevron
-      />
-    );
-  }
-
-  return null;
-};
-
-const TeamListCollapsible = ({ teamFeatures }: { teamFeatures?: Record<number, TeamFeatures> }) => {
-  const { data: teams } = trpc.viewer.teams.list.useQuery();
-  const { t } = useLocale();
-  const [teamMenuState, setTeamMenuState] =
-    useState<{ teamId: number | undefined; teamMenuOpen: boolean }[]>();
-  const searchParams = useCompatSearchParams();
-  const pathname = usePathname();
-  const searchParamsId = searchParams?.get("id");
-  const pathTeamId = pathname?.match(/\/settings\/teams\/(\d+)/)?.[1];
-  const activeTeamId = pathTeamId || searchParamsId;
-
-  useEffect(() => {
-    if (teams) {
-      const teamStates = teams?.map((team) => ({
-        teamId: team.id,
-        teamMenuOpen: String(team.id) === activeTeamId,
-      }));
-      setTeamMenuState(teamStates);
-      if (activeTeamId) {
-        setTimeout(() => {
-          const teamTrigger = document.querySelector(`[aria-controls="team-content-${activeTeamId}"]`);
-          teamTrigger?.scrollIntoView({ behavior: "smooth", block: "center" });
-        }, 100);
-      }
-    }
-  }, [activeTeamId, teams]);
-
-  return (
-    <>
-      {teams &&
-        teamMenuState &&
-        teams.map((team, index: number) => {
-          if (!teamMenuState[index]) {
-            return null;
-          }
-          if (teamMenuState.some((teamState) => teamState.teamId === team.id)) {
-            return (
-              <Collapsible
-                className="cursor-pointer"
-                key={team.id}
-                open={teamMenuState[index].teamMenuOpen}
-                onOpenChange={(open) => {
-                  const newTeamMenuState = [...teamMenuState];
-                  newTeamMenuState[index] = {
-                    ...newTeamMenuState[index],
-                    teamMenuOpen: open,
-                  };
-                  setTeamMenuState(newTeamMenuState);
-                }}>
-                <CollapsibleTrigger asChild>
-                  <button
-                    className="hover:bg-subtle [&[aria-current='page']]:bg-emphasis [&[aria-current='page']]:text-emphasis text-default flex h-9 w-full flex-row items-center rounded-md px-2 py-[10px] text-left text-sm font-medium leading-none transition"
-                    aria-controls={`team-content-${team.id}`}
-                    aria-expanded={teamMenuState[index].teamMenuOpen}
-                    onClick={() => {
-                      const newTeamMenuState = [...teamMenuState];
-                      newTeamMenuState[index] = {
-                        ...newTeamMenuState[index],
-                        teamMenuOpen: !teamMenuState[index].teamMenuOpen,
-                      };
-                      setTeamMenuState(newTeamMenuState);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        const newTeamMenuState = [...teamMenuState];
-                        newTeamMenuState[index] = {
-                          ...newTeamMenuState[index],
-                          teamMenuOpen: !teamMenuState[index].teamMenuOpen,
-                        };
-                        setTeamMenuState(newTeamMenuState);
-                      }
-                    }}
-                    aria-label={`${team.name} ${teamMenuState[index].teamMenuOpen ? t("collapse_menu") : t("expand_menu")
-                      }`}>
-                    <div className="me-3">
-                      {teamMenuState[index].teamMenuOpen ? (
-                        <ChevronDownIcon className="h-4 w-4" />
-                      ) : (
-                        <ChevronRightIcon className="h-4 w-4" />
-                      )}
-                    </div>
-                    { }
-                    {!team.parentId && (
-                      <Avatar
-                        size="xs"
-                        imageSrc={getPlaceholderAvatar(team.logoUrl, team.name)}
-                        alt={team.name || "Team logo"}
-                        className="self-start border-0 bg-transparent ltr:mr-2 rtl:ml-2 md:mt-0"
-                      />
-                    )}
-                    <p className="w-1/2 truncate leading-normal">{team.name}</p>
-                    {!team.accepted && (
-                      <Badge className="ms-3" variant="orange">
-                        Inv.
-                      </Badge>
-                    )}
-                  </button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="flex flex-col space-y-1" id={`team-content-${team.id}`}>
-                  {team.accepted && (
-                    <VerticalTabItem
-                      name={t("profile")}
-                      href={`/settings/teams/${team.id}/profile`}
-                      trackingMetadata={{ section: "team", page: "profile", teamId: team.id }}
-                      textClassNames="px-3 text-emphasis font-medium text-sm"
-                      className="px-2! me-5 h-7 w-auto"
-                      disableChevron
-                    />
-                  )}
-                  <VerticalTabItem
-                    name={t("members")}
-                    href={`/settings/teams/${team.id}/members`}
-                    trackingMetadata={{ section: "team", page: "members", teamId: team.id }}
-                    textClassNames="px-3 text-emphasis font-medium text-sm"
-                    className="px-2! me-5 h-7 w-auto"
-                    disableChevron
-                  />
-                  {/* Show roles only for sub-teams with PBAC-enabled parent */}
-                  <TeamRolesNavItem team={team} teamFeatures={teamFeatures} />
-                  {(checkAdminOrOwner(team.role) ||
-                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                    // @ts-expect-error this exists wtf?
-                    (team.isOrgAdmin && team.isOrgAdmin)) && (
-                      <>
-                        {/* TODO */}
-                        {/* <VerticalTabItem
-                name={t("general")}
-                href={`${WEBAPP_URL}/settings/my-account/appearance`}
-                textClassNames="px-3 text-emphasis font-medium text-sm"
-                disableChevron
-              /> */}
-                        <VerticalTabItem
-                          name={t("appearance")}
-                          href={`/settings/teams/${team.id}/appearance`}
-                          textClassNames="px-3 text-emphasis font-medium text-sm"
-                          trackingMetadata={{ section: "team", page: "appearance", teamId: team.id }}
-                          className="px-2! me-5 h-7 w-auto"
-                          disableChevron
-                        />
-                        {HAS_TEAM_OPT_IN_FEATURES && (
-                          <VerticalTabItem
-                            name={t("features")}
-                            href={`/settings/teams/${team.id}/features`}
-                            textClassNames="px-3 text-emphasis font-medium text-sm"
-                            trackingMetadata={{ section: "team", page: "features", teamId: team.id }}
-                            className="px-2! me-5 h-7 w-auto"
-                            disableChevron
-                          />
-                        )}
-                        {/* Hide if there is a parent ID */}
-                        {!team.parentId ? (
-                          <>
-                            <VerticalTabItem
-                              name={t("billing")}
-                              href={`/settings/teams/${team.id}/billing`}
-                              textClassNames="px-3 text-emphasis font-medium text-sm"
-                              trackingMetadata={{ section: "team", page: "billing", teamId: team.id }}
-                              className="px-2! me-5 h-7 w-auto"
-                              disableChevron
-                            />
-                          </>
-                        ) : null}
-                        <VerticalTabItem
-                          name={t("settings")}
-                          href={`/settings/teams/${team.id}/settings`}
-                          textClassNames="px-3 text-emphasis font-medium text-sm"
-                          trackingMetadata={{ section: "team", page: "settings", teamId: team.id }}
-                          className="px-2! me-5 h-7 w-auto"
-                          disableChevron
-                        />
-                      </>
-                    )}
-                </CollapsibleContent>
-              </Collapsible>
-            );
-          }
-
-          return null;
-        })}
-    </>
-  );
-};
 
 const SettingsSidebarContainer = ({
   className = "",
@@ -804,7 +476,7 @@ const SettingsSidebarContainer = ({
         {tabsWithPermissions.map((tab) => {
           return (
             <React.Fragment key={tab.href}>
-              {!["teams", "other_teams"].includes(tab.name) && (
+              {tab.name !== "other_teams" && (
                 <React.Fragment key={tab.href}>
                   <div className={`${!tab.children?.length ? "mb-3!" : ""}`}>
                     <div className="[&[aria-current='page']]:bg-emphasis [&[aria-current='page']]:text-emphasis text-default group flex h-7 w-full flex-row items-center rounded-md px-2 text-sm font-medium leading-none">
@@ -853,42 +525,6 @@ const SettingsSidebarContainer = ({
                         )}
                       </div>
                     ))}
-                  </div>
-                </React.Fragment>
-              )}
-
-              {tab.name === "teams" && (
-                <React.Fragment key={tab.href}>
-                  <div data-testid="tab-teams" className={`${!tab.children?.length ? "mb-3" : ""}`}>
-                    <Link href={tab.href}>
-                      <div className="hover:bg-subtle [&[aria-current='page']]:bg-emphasis [&[aria-current='page']]:text-emphasis group-hover:text-default text-default group flex h-9 w-full flex-row items-center rounded-md px-2 py-[10px] text-sm font-medium leading-none transition">
-                        {tab && tab.icon && (
-                          <Icon
-                            name={tab.icon}
-                            className="text-subtle h-[16px] w-[16px] stroke-[2px] ltr:mr-3 rtl:ml-3 md:mt-0"
-                          />
-                        )}
-                        <Skeleton
-                          title={tab.name}
-                          as="p"
-                          className="text-subtle truncate text-sm font-medium leading-5"
-                          loadingClassName="ms-3">
-                          {t("my_teams")}
-                        </Skeleton>
-                      </div>
-                    </Link>
-                    <TeamListCollapsible teamFeatures={teamFeatures} />
-                    {(!orgBranding?.id || permissions?.canUpdateOrganization) && (
-                      <VerticalTabItem
-                        name={t("add_a_team")}
-                        href={`${WEBAPP_URL}/settings/teams/new`}
-                        trackingMetadata={{ section: "team", page: "add_a_team" }}
-                        textClassNames="px-3 items-center mt-2 text-emphasis font-medium text-sm"
-                        className="px-2! me-5 h-7 w-auto"
-                        icon="plus"
-                        disableChevron
-                      />
-                    )}
                   </div>
                 </React.Fragment>
               )}
