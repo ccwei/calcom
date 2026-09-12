@@ -1,4 +1,3 @@
-import { getBookerBaseUrlSync } from "@calcom/features/ee/organizations/lib/getBookerBaseUrlSync";
 import { useBottomNavItems } from "../useBottomNavItems";
 import { UserPermissionRole } from "@calcom/prisma/enums";
 import type { NavigationItemType } from "./NavigationItem";
@@ -8,10 +7,8 @@ export function useMobileMoreItems(): NavigationItemType[] {
   const { data: session } = useSession();
   const user = session?.user;
   const isAdmin = user?.role === UserPermissionRole.ADMIN;
-  const publicPageUrl = `${getBookerBaseUrlSync(user?.org?.slug ?? null)}/${user?.orgAwareUsername ?? user?.username}`;
 
   const bottomNavItems = useBottomNavItems({
-    publicPageUrl,
     isAdmin,
     user,
   });

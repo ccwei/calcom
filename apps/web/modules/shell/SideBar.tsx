@@ -4,7 +4,6 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { getBookerBaseUrlSync } from "@calcom/features/ee/organizations/lib/getBookerBaseUrlSync";
 import { useFlagMap } from "@calcom/features/flags/context/provider";
 import { IS_VISUAL_REGRESSION_TESTING, ENABLE_PROFILE_SWITCHER } from "@calcom/lib/constants";
 import { getPlaceholderAvatar } from "@calcom/lib/defaultAvatarImage";
@@ -63,10 +62,7 @@ export function SideBar({ bannersHeight, user }: SideBarProps) {
   const isAdmin = session.data?.user.role === UserPermissionRole.ADMIN;
   const flags = useFlagMap();
 
-  const publicPageUrl = `${getBookerBaseUrlSync(user?.org?.slug ?? null)}/${user?.orgAwareUsername}`;
-
   const bottomNavItems = useBottomNavItems({
-    publicPageUrl,
     isAdmin,
     user,
   });
