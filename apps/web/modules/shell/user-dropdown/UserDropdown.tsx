@@ -1,6 +1,4 @@
-import { ROADMAP } from "@calcom/lib/constants";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
-import { useUserAgentData } from "@calcom/lib/hooks/useUserAgentData";
 import useMeQuery from "@calcom/trpc/react/hooks/useMeQuery";
 import classNames from "@calcom/ui/classNames";
 import { Avatar } from "@calcom/ui/components/avatar";
@@ -8,10 +6,7 @@ import {
   BlocksIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-  CircleHelpIcon,
-  DownloadIcon,
   LogOutIcon,
-  MapIcon,
   MoonIcon,
   SettingsIcon,
   UserIcon,
@@ -23,27 +18,12 @@ import {
   MenuItem,
   MenuPopup,
   MenuSeparator,
-  MenuSub,
-  MenuSubPopup,
-  MenuSubTrigger,
   MenuTrigger,
 } from "@coss/ui/components/menu";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import type { MouseEvent } from "react";
 import { useEffect, useState } from "react";
-
-import {
-  AppleIcon,
-  ChromeIcon,
-  EdgeIcon,
-  FirefoxIcon,
-  LinuxIcon,
-  PlayStoreIcon,
-  SafariIcon,
-  WindowsIcon,
-} from "./DownloadIcons";
 
 declare global {
   interface Window {
@@ -65,25 +45,12 @@ interface UserDropdownProps {
   small?: boolean;
 }
 
-const DOWNLOAD_LINKS = {
-  ios: "https://go.cal.com/iOS",
-  android: "https://go.cal.com/android",
-  chrome: "https://go.cal.com/chrome",
-  safari: "https://go.cal.com/safari",
-  firefox: "https://go.cal.com/firefox",
-  edge: "https://go.cal.com/edge",
-  macos: "https://cal.com/download",
-  windows: "https://cal.com/download",
-  linux: "https://cal.com/download",
-} as const;
-
 export function UserDropdown({ small }: UserDropdownProps) {
   const { isPlatformUser } = useGetUserAttributes();
   const { t } = useLocale();
   const { data: user, isPending } = useMeQuery();
   const pathname = usePathname();
   const isPlatformPages = pathname?.startsWith("/settings/platform");
-  const { os, browser, isMobile } = useUserAgentData();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -113,25 +80,6 @@ export function UserDropdown({ small }: UserDropdownProps) {
   }, [user?.username]);
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const [openSupportAfterClose, setOpenSupportAfterClose] = useState(false);
-
-  const handleHelpClick = (e?: MouseEvent) => {
-    e?.preventDefault();
-    e?.stopPropagation();
-
-    setOpenSupportAfterClose(true);
-    setMenuOpen(false);
-  };
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!menuOpen && openSupportAfterClose) {
-      setTimeout(() => {
-        window.Support?.open();
-      }, 0);
-      setOpenSupportAfterClose(false);
-    }
-  }, [menuOpen, openSupportAfterClose]);
 
   // Prevent rendering dropdown if user isn't available.
   // We don't want to show nameless user.
@@ -212,94 +160,17 @@ export function UserDropdown({ small }: UserDropdownProps) {
             </>
           )}
 
-          <MenuItem render={<a href={ROADMAP} target="_blank" rel="noreferrer" />}>
-            <MapIcon />
-            {t("visit_roadmap")}
-          </MenuItem>
-          <MenuItem onClick={handleHelpClick}>
-            <CircleHelpIcon />
-            {t("help")}
-          </MenuItem>
-          {!isPlatformPages && isMobile && os === "ios" && (
-            <MenuItem render={<a href={DOWNLOAD_LINKS.ios} target="_blank" rel="noreferrer" />}>
-              <DownloadIcon />
-              {t("download_app")}
-            </MenuItem>
-          )}
-          {!isPlatformPages && isMobile && os === "android" && (
-            <MenuItem render={<a href={DOWNLOAD_LINKS.android} target="_blank" rel="noreferrer" />}>
-              <DownloadIcon />
-              {t("download_app")}
-            </MenuItem>
-          )}
-          {!isPlatformPages && !isMobile && (
-            <MenuSub>
-              <MenuSubTrigger>
-                <DownloadIcon />
-                {t("download_app")}
-              </MenuSubTrigger>
-              <MenuSubPopup>
-                {os === "macos" && (
-                  <MenuItem render={<a href={DOWNLOAD_LINKS.macos} target="_blank" rel="noreferrer" />}>
-                    <AppleIcon className="size-4 fill-foreground" />
-                    {t("download_for_macos")}
-                  </MenuItem>
-                )}
-                {os === "windows" && (
-                  <MenuItem render={<a href={DOWNLOAD_LINKS.windows} target="_blank" rel="noreferrer" />}>
-                    <WindowsIcon className="size-4" />
-                    {t("download_for_windows")}
-                  </MenuItem>
-                )}
-                {os === "linux" && (
-                  <MenuItem render={<a href={DOWNLOAD_LINKS.linux} target="_blank" rel="noreferrer" />}>
-                    <LinuxIcon className="size-4" />
-                    {t("download_for_linux")}
-                  </MenuItem>
-                )}
-                {browser === "chrome" && (
-                  <MenuItem render={<a href={DOWNLOAD_LINKS.chrome} target="_blank" rel="noreferrer" />}>
-                    <ChromeIcon className="size-4" />
-                    {t("download_chrome_extension")}
-                  </MenuItem>
-                )}
-                {browser === "safari" && (
-                  <MenuItem render={<a href={DOWNLOAD_LINKS.safari} target="_blank" rel="noreferrer" />}>
-                    <SafariIcon className="size-4" />
-                    {t("download_safari_extension")}
-                  </MenuItem>
-                )}
-                {browser === "firefox" && (
-                  <MenuItem render={<a href={DOWNLOAD_LINKS.firefox} target="_blank" rel="noreferrer" />}>
-                    <FirefoxIcon className="size-4" />
-                    {t("download_firefox_extension")}
-                  </MenuItem>
-                )}
-                {browser === "edge" && (
-                  <MenuItem render={<a href={DOWNLOAD_LINKS.edge} target="_blank" rel="noreferrer" />}>
-                    <EdgeIcon className="size-4" />
-                    {t("download_edge_extension")}
-                  </MenuItem>
-                )}
-                <MenuItem render={<a href={DOWNLOAD_LINKS.ios} target="_blank" rel="noreferrer" />}>
-                  <AppleIcon className="size-4 fill-foreground" />
-                  {t("download_for_ios")}
-                </MenuItem>
-                <MenuItem render={<a href={DOWNLOAD_LINKS.android} target="_blank" rel="noreferrer" />}>
-                  <PlayStoreIcon className="size-4" />
-                  {t("download_for_android")}
-                </MenuItem>
-              </MenuSubPopup>
-            </MenuSub>
-          )}
-
           {!isPlatformPages && isPlatformUser && (
-            <MenuItem render={<Link href="/settings/platform" />} className="todesktop:hidden hidden lg:flex">
-              <BlocksIcon />
-              {t("platform")}
-            </MenuItem>
+            <>
+              <MenuItem
+                render={<Link href="/settings/platform" />}
+                className="todesktop:hidden hidden lg:flex">
+                <BlocksIcon />
+                {t("platform")}
+              </MenuItem>
+              <MenuSeparator />
+            </>
           )}
-          <MenuSeparator />
 
           <MenuItem
             variant="destructive"
