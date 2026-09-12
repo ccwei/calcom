@@ -10,18 +10,14 @@ import type {
 } from "@calcom/features/eventtypes/lib/types";
 import { MAX_EVENT_DURATION_MINUTES, MIN_EVENT_DURATION_MINUTES } from "@calcom/lib/constants";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
-import { md } from "@calcom/lib/markdownIt";
 import { slugify } from "@calcom/lib/slugify";
-import turndown from "@calcom/lib/turndownService";
 import { SchedulingType } from "@calcom/prisma/enums";
 import classNames from "@calcom/ui/classNames";
-import { Editor } from "@calcom/ui/components/editor";
 import {
   CheckboxField,
   Label,
   Select,
   SettingsToggle,
-  TextAreaField,
   TextField,
 } from "@calcom/ui/components/form";
 import { Skeleton } from "@calcom/ui/components/skeleton";
@@ -81,7 +77,6 @@ export const EventSetupTab = (
   const [multipleDuration, setMultipleDuration] = useState(
     formMethods.getValues("metadata")?.multipleDuration
   );
-  const [firstRender, setFirstRender] = useState(true);
 
   const seatsEnabled = formMethods.watch("seatsPerTimeSlotEnabled");
   const enablePerHostLocations = formMethods.watch("enablePerHostLocations");
@@ -107,7 +102,6 @@ export const EventSetupTab = (
     useLockedFieldsManager({ eventType, translate: t, formMethods });
 
   const lengthLockedProps = shouldLockDisableProps("length");
-  const descriptionLockedProps = shouldLockDisableProps("description");
   const urlLockedProps = shouldLockDisableProps("slug");
   const titleLockedProps = shouldLockDisableProps("title");
 
@@ -130,40 +124,6 @@ export const EventSetupTab = (
             data-testid="event-title"
             {...formMethods.register("title")}
           />
-          <div>
-            {isPlatform ? (
-              <TextAreaField
-                {...formMethods.register("description", {
-                  disabled: descriptionLockedProps.disabled,
-                })}
-                placeholder={t("quick_video_meeting")}
-                className={customClassNames?.titleSection?.descriptionInput?.input}
-                labelProps={{
-                  className: customClassNames?.titleSection?.descriptionInput?.label,
-                }}
-              />
-            ) : (
-              <>
-                <Label htmlFor="editor">
-                  {t("description")}
-                  {(isManagedEventType || isChildrenManagedEventType) && shouldLockIndicator("description")}
-                </Label>
-                <Editor
-                  getText={() => md.render(formMethods.getValues("description") || "")}
-                  setText={(value: string) => {
-                    // Clean up non-breaking spaces
-                    const cleanedValue = value.replace(/&nbsp;/g, " ");
-                    const markdownValue = turndown(cleanedValue);
-                    formMethods.setValue("description", markdownValue, { shouldDirty: true });
-                  }}
-                  placeholder={t("quick_video_meeting")}
-                  editable={!descriptionLockedProps.disabled}
-                  firstRender={firstRender}
-                  setFirstRender={setFirstRender}
-                />
-              </>
-            )}
-          </div>
           <TextField
             required
             label={isPlatform ? "Slug" : t("URL")}
