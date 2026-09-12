@@ -23,12 +23,9 @@ import {
 } from "~/data-table/components";
 import { useSegments } from "~/data-table/hooks/useSegments";
 import SettingsHeader from "@calcom/features/settings/appDir/SettingsHeader";
-import ServerTrans from "@calcom/lib/components/ServerTrans";
-import { getUserAvatarUrl } from "@calcom/lib/getAvatarUrl";
 import { useCompatSearchParams } from "@calcom/lib/hooks/useCompatSearchParams";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { trpc } from "@calcom/trpc/react";
-import { Avatar } from "@calcom/ui/components/avatar";
 import { Button } from "@calcom/ui/components/button";
 import { EmptyScreen } from "@calcom/ui/components/empty-screen";
 import { SkeletonText } from "@calcom/ui/components/skeleton";
@@ -118,7 +115,7 @@ function OutOfOfficeEntriesListContent({
     trpc.viewer.ooo.outOfOfficeEntriesList.useInfiniteQuery(
       {
         limit: 10,
-        fetchTeamMembersEntries: selectedTab === OutOfOfficeTab.TEAM,
+        fetchTeamMembersEntries: false,
         searchTerm,
         endDateFilterStartRange: endDateRange?.startDate ?? undefined,
         endDateFilterEndRange: endDateRange?.endDate ?? undefined,
@@ -169,50 +166,6 @@ function OutOfOfficeEntriesListContent({
           },
         },
       }),
-      ...(selectedTab === OutOfOfficeTab.TEAM
-        ? [
-          columnHelper.display({
-            id: "member",
-            header: `Member`,
-            size: 220,
-            cell: ({ row }) => {
-              if (!row.original || !row.original.user || isPending || isFetching) {
-                return <SkeletonText className="h-8 w-full" />;
-              }
-              const { avatarUrl, username, email, name } = row.original.user;
-              const memberName =
-                name ||
-                (() => {
-                  const emailName = email.split("@")[0];
-                  return emailName.charAt(0).toUpperCase() + emailName.slice(1);
-                })();
-              return (
-                <div className="flex items-center gap-2">
-                  <Avatar
-                    size="sm"
-                    alt={username || email}
-                    imageSrc={getUserAvatarUrl({
-                      avatarUrl,
-                    })}
-                  />
-                  <div className="">
-                    <div
-                      data-testid={`ooo-member-${username}-username`}
-                      className="text-emphasis text-sm font-medium leading-none">
-                      {memberName}
-                    </div>
-                    <div
-                      data-testid={`ooo-member-${username}-email`}
-                      className="text-subtle mt-1 text-sm leading-none">
-                      {email}
-                    </div>
-                  </div>
-                </div>
-              );
-            },
-          }),
-        ]
-        : []),
       columnHelper.display({
         id: "outOfOffice",
         header: `${t("out_of_office")} (${totalRowCount})`,
@@ -233,28 +186,6 @@ function OutOfOfficeEntriesListContent({
                     <p className="font-bold">
                       {dayjs.utc(item.start).format("ll")} - {dayjs.utc(item.end).format("ll")}
                     </p>
-                    <p>
-                      {item.toUser?.username ? (
-                        <ServerTrans
-                          t={t}
-                          i18nKey="ooo_forwarding_to"
-                          values={{
-                            username: item.toUser?.username,
-                          }}
-                          components={[<span key="ooo-username" className="text-subtle font-bold" />]}
-                        />
-                      ) : (
-                        <>{t("ooo_not_forwarding")}</>
-                      )}
-                    </p>
-                    {item.notes && (
-                      <p>
-                        <span className="text-subtle">{t("notes")}: </span>
-                        <span data-testid={`ooo-entry-note-${item.toUser?.username || "n-a"}`}>
-                          {item.notes}
-                        </span>
-                      </p>
-                    )}
                   </div>
                 </div>
               ) : (
@@ -292,20 +223,14 @@ function OutOfOfficeEntriesListContent({
                           },
                           startDateOffset,
                           endDateOffset,
-                          toTeamUserId: item.toUserId,
+                          toTeamUserId: null,
                           reasonId: item.reason?.id ?? 1,
                           notes: item.notes ?? undefined,
                           showNotePublicly: item.showNotePublicly ?? false,
-                          forUserId: item.user?.id || null,
-                          forUserName:
-                            item.user?.name ||
-                            (item.user?.email &&
-                              (() => {
-                                const emailName = item.user?.email.split("@")[0];
-                                return emailName.charAt(0).toUpperCase() + emailName.slice(1);
-                              })()),
-                          forUserAvatar: item.user?.avatarUrl,
-                          toUserName: item.toUser?.name || item.toUser?.username,
+                          forUserId: null,
+                          forUserName: undefined,
+                          forUserAvatar: undefined,
+                          toUserName: undefined,
                         };
                         onOpenEditDialog(outOfOfficeEntryData);
                       }}
@@ -329,7 +254,6 @@ function OutOfOfficeEntriesListContent({
                       onClick={() => {
                         deleteOutOfOfficeEntryMutation.mutate({
                           outOfOfficeUid: item.uuid,
-                          userId: selectedTab === OutOfOfficeTab.TEAM ? item.user?.id : undefined,
                         });
                       }}
                     />
@@ -344,7 +268,6 @@ function OutOfOfficeEntriesListContent({
       }),
     ];
   }, [
-    selectedTab,
     isPending,
     isFetching,
     onOpenEditDialog,
@@ -372,7 +295,6 @@ function OutOfOfficeEntriesListContent({
     <>
       <DataTableWrapper
         testId="ooo-list-data-table"
-        rowClassName={selectedTab === OutOfOfficeTab.MINE ? "hidden" : ""}
         table={table}
         isPending={isPending}
         hasNextPage={hasNextPage}
@@ -398,17 +320,9 @@ function OutOfOfficeEntriesListContent({
           <EmptyScreen
             className="mt-6"
             headline={
-              searchTerm
-                ? t("no_result_found_for", { searchTerm })
-                : selectedTab === OutOfOfficeTab.TEAM
-                  ? t("ooo_team_empty_title")
-                  : t("ooo_empty_title")
+              searchTerm ? t("no_result_found_for", { searchTerm }) : t("ooo_empty_title")
             }
-            description={
-              selectedTab === OutOfOfficeTab.TEAM
-                ? t("ooo_team_empty_description")
-                : t("ooo_empty_description")
-            }
+            description={t("ooo_empty_description")}
             buttonRaw={<CreateNewOutOfOfficeEntryButton size="sm" onClick={onOpenCreateDialog} />}
             customIcon={
               <div className="mt-4 h-[102px]">

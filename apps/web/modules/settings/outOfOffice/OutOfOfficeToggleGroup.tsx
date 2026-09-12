@@ -9,7 +9,6 @@ import { Select, ToggleGroup } from "@calcom/ui/components/form";
 
 export enum OutOfOfficeTab {
   MINE = "mine",
-  TEAM = "team",
   HOLIDAYS = "holidays",
 }
 
@@ -34,7 +33,6 @@ export const OutOfOfficeToggleGroup = () => {
   const tabOptions = useMemo(
     () => [
       { value: OutOfOfficeTab.MINE, label: t("my_ooo") },
-      { value: OutOfOfficeTab.TEAM, label: t("team_ooo") },
       { value: OutOfOfficeTab.HOLIDAYS, label: t("holidays") },
     ],
     [t]
