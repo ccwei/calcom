@@ -1,7 +1,6 @@
 "use client";
 
 import type { TFunction } from "i18next";
-import { signOut } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
 import posthog from "posthog-js";
 import { Suspense, useTransition } from "react";
@@ -13,7 +12,6 @@ import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { useParamsWithFallback } from "@calcom/lib/hooks/useParamsWithFallback";
 import type { RouterOutputs } from "@calcom/trpc/react";
 import classNames from "@calcom/ui/classNames";
-import { Button } from "@calcom/ui/components/button";
 import { StepCard } from "@calcom/ui/components/card";
 import { Steps } from "@calcom/ui/components/form";
 import { LoaderIcon } from "@coss/ui/icons";
@@ -21,7 +19,6 @@ import { LoaderIcon } from "@coss/ui/icons";
 import { ConnectedCalendars } from "@components/getting-started/steps-views/ConnectCalendars";
 import { ConnectedVideoStep } from "@components/getting-started/steps-views/ConnectedVideoStep";
 import { SetupAvailability } from "@components/getting-started/steps-views/SetupAvailability";
-import UserProfile from "@components/getting-started/steps-views/UserProfile";
 import { UserSettings } from "@components/getting-started/steps-views/UserSettings";
 
 const INITIAL_STEP = "user-settings";
@@ -30,7 +27,6 @@ const BASE_STEPS = [
   "connected-calendar",
   "connected-video",
   "setup-availability",
-  "user-profile",
 ] as const;
 
 type StepType = (typeof BASE_STEPS)[number];
@@ -63,10 +59,6 @@ const getStepsAndHeadersForUser = (t: TFunction) => {
         )}`,
       ],
     },
-    {
-      title: t("nearly_there"),
-      subtitle: [t("nearly_there_instructions")],
-    },
   ];
 
   return {
@@ -77,9 +69,7 @@ const getStepsAndHeadersForUser = (t: TFunction) => {
 
 const stepRouteSchema = z.object({
   step: z
-    .array(
-      z.enum(["user-settings", "setup-availability", "user-profile", "connected-calendar", "connected-video"])
-    )
+    .array(z.enum(["user-settings", "setup-availability", "connected-calendar", "connected-video"]))
     .default([INITIAL_STEP]),
   from: z.string().optional(),
 });
@@ -189,26 +179,10 @@ const OnboardingPage = (props: PageProps) => {
                 )}
 
                 {currentStep === "setup-availability" && (
-                  <SetupAvailability nextStep={goToNextStep} defaultScheduleId={user.defaultScheduleId} />
+                  <SetupAvailability defaultScheduleId={user.defaultScheduleId} />
                 )}
-                {currentStep === "user-profile" && <UserProfile user={user} />}
               </Suspense>
             </StepCard>
-          </div>
-          <div className="flex w-full flex-row justify-center">
-            <Button
-              color="minimal"
-              data-testid="sign-out"
-              onClick={() => {
-                posthog.capture("onboarding_sign_out_clicked", {
-                  step: currentStep,
-                  step_index: currentStepIndex,
-                });
-                signOut({ callbackUrl: "/auth/logout" });
-              }}
-              className="mt-8 cursor-pointer px-4 py-2 font-sans text-sm font-medium">
-              {t("sign_out")}
-            </Button>
           </div>
         </div>
       </div>
