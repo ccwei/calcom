@@ -1,11 +1,10 @@
-import { isValidPhoneNumber } from "libphonenumber-js/max";
-import { useRouter } from "next/navigation";
-import { z } from "zod";
-
+import process from "node:process";
+import { isAllowedOnlineConferencingLocation } from "@calcom/app-store/locations";
 import { Dialog } from "@calcom/features/components/controlled-dialog";
 import { useOrgBranding } from "@calcom/features/ee/organizations/context/provider";
+import { TeamEventTypeForm } from "@calcom/features/ee/teams/components/TeamEventTypeForm";
 import CreateEventTypeForm from "@calcom/features/eventtypes/components/CreateEventTypeForm";
-import { useCreateEventType } from "~/event-types/hooks/useCreateEventType";
+import type { createEventTypeInput } from "@calcom/features/eventtypes/lib/types";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { useTypedQuery } from "@calcom/lib/hooks/useTypedQuery";
 import type { EventType } from "@calcom/prisma/client";
@@ -13,9 +12,13 @@ import type { MembershipRole } from "@calcom/prisma/enums";
 import { SchedulingType } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
-import { DialogContent, DialogFooter, DialogClose } from "@calcom/ui/components/dialog";
+import { DialogClose, DialogContent, DialogFooter } from "@calcom/ui/components/dialog";
 import { showToast } from "@calcom/ui/components/toast";
-import { TeamEventTypeForm } from "@calcom/features/ee/teams/components/TeamEventTypeForm";
+import { isValidPhoneNumber } from "libphonenumber-js/max";
+import { useRouter } from "next/navigation";
+import { z } from "zod";
+import { useCreateEventType } from "~/event-types/hooks/useCreateEventType";
+import CreateEventTypeLocationField from "./locations/CreateEventTypeLocationField";
 
 // this describes the uniform data needed to create a new event type on Profile or Team
 export interface EventTypeParent {
@@ -91,18 +94,20 @@ export function CreateEventTypeDialog({ profileOptions }: { profileOptions: Prof
     showToast(err, "error");
   };
 
+  const { form, createMutation, isManagedEventType } = useCreateEventType(onSuccessMutation, onErrorMutation);
+  const selectedLocationType = form.watch("locations")?.[0]?.type;
+  const hasSelectedLocation = isAllowedOnlineConferencingLocation(selectedLocationType);
+
   const SubmitButton = (isPending: boolean) => {
     return (
       <DialogFooter showDivider>
         <DialogClose />
-        <Button type="submit" loading={isPending}>
+        <Button type="submit" loading={isPending} disabled={!hasSelectedLocation}>
           {t("continue")}
         </Button>
       </DialogFooter>
     );
   };
-
-  const { form, createMutation, isManagedEventType } = useCreateEventType(onSuccessMutation, onErrorMutation);
 
   const urlPrefix = orgBranding?.fullDomain ?? process.env.NEXT_PUBLIC_WEBSITE_URL;
 
@@ -110,6 +115,16 @@ export function CreateEventTypeDialog({ profileOptions }: { profileOptions: Prof
     { teamId: teamId ?? -1, isOrg: false },
     { enabled: !!teamId }
   );
+
+  const locationField = <CreateEventTypeLocationField form={form} teamId={teamId} />;
+
+  const handleCreate = (values: z.infer<typeof createEventTypeInput>) => {
+    if (!isAllowedOnlineConferencingLocation(values.locations?.[0]?.type)) {
+      showToast(t("connect_google_meet_required_error"), "error");
+      return;
+    }
+    createMutation.mutate(values);
+  };
 
   return (
     <Dialog
@@ -129,10 +144,9 @@ export function CreateEventTypeDialog({ profileOptions }: { profileOptions: Prof
             isPending={createMutation.isPending}
             form={form}
             isManagedEventType={isManagedEventType}
-            handleSubmit={(values) => {
-              createMutation.mutate(values);
-            }}
+            handleSubmit={handleCreate}
             SubmitButton={SubmitButton}
+            extraFields={locationField}
           />
         ) : (
           <CreateEventTypeForm
@@ -140,11 +154,10 @@ export function CreateEventTypeDialog({ profileOptions }: { profileOptions: Prof
             isPending={createMutation.isPending}
             form={form}
             isManagedEventType={isManagedEventType}
-            handleSubmit={(values) => {
-              createMutation.mutate(values);
-            }}
+            handleSubmit={handleCreate}
             SubmitButton={SubmitButton}
             pageSlug={pageSlug}
+            extraFields={locationField}
           />
         )}
       </DialogContent>

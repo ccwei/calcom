@@ -1,37 +1,37 @@
 "use client";
 
-import { useSession } from "next-auth/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useFormContext } from "react-hook-form";
-import type { CSSObjectWithLabel } from "react-select";
-import { components } from "react-select";
-
 import { appStoreMetadata } from "@calcom/app-store/appStoreMetaData";
 import {
-  defaultLocations,
   getAppSlugFromLocationType,
   getEventLocationType,
+  isAllowedOnlineConferencingAppSlug,
+  isAllowedOnlineConferencingLocation,
   isCalVideoLocation,
   isStaticLocationType,
 } from "@calcom/app-store/locations";
 import { getAppFromSlug } from "@calcom/app-store/utils";
-import PhoneInput from "@calcom/web/components/phone-input";
-import invertLogoOnDark from "@calcom/lib/invertLogoOnDark";
+import type { FormValues, Host, HostLocation } from "@calcom/features/eventtypes/lib/types";
 import type { LocationOption } from "@calcom/features/form/components/LocationSelect";
 import LocationSelect from "@calcom/features/form/components/LocationSelect";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
+import invertLogoOnDark from "@calcom/lib/invertLogoOnDark";
 import { trpc } from "@calcom/trpc/react";
 import { Alert } from "@calcom/ui/components/alert";
 import { Avatar } from "@calcom/ui/components/avatar";
 import { Badge } from "@calcom/ui/components/badge";
 import { Button } from "@calcom/ui/components/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@calcom/ui/components/dialog";
-import { Label, TextField, Select, SettingsToggle } from "@calcom/ui/components/form";
-import { LoaderIcon, TriangleAlertIcon } from "@coss/ui/icons";
+import { Label, Select, SettingsToggle, TextField } from "@calcom/ui/components/form";
 import { Skeleton } from "@calcom/ui/components/skeleton";
 import { showToast } from "@calcom/ui/components/toast";
-
-import type { FormValues, Host, HostLocation } from "@calcom/features/eventtypes/lib/types";
+import PhoneInput from "@calcom/web/components/phone-input";
+import { LoaderIcon, TriangleAlertIcon } from "@coss/ui/icons";
+import { useSession } from "next-auth/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useFormContext } from "react-hook-form";
+import type { CSSObjectWithLabel } from "react-select";
+import { components } from "react-select";
+import ConnectGoogleMeetPrompt from "./ConnectGoogleMeetPrompt";
 import type { TLocationOptions } from "./Locations";
 
 type HostWithLocationOptions = {
@@ -397,18 +397,8 @@ const getAllLocationOptions = (): AllLocationOption[] => {
   const options: AllLocationOption[] = [];
   const seenValues = new Set<string>();
 
-  defaultLocations.forEach((loc) => {
-    if (!seenValues.has(loc.type)) {
-      seenValues.add(loc.type);
-      options.push({
-        value: loc.type,
-        label: loc.label,
-        icon: loc.iconUrl,
-      });
-    }
-  });
-
   Object.values(appStoreMetadata).forEach((app) => {
+    if (!isAllowedOnlineConferencingAppSlug(app.slug)) return;
     const locationData = app.appData?.location;
     if (locationData && !seenValues.has(locationData.type)) {
       seenValues.add(locationData.type);
@@ -606,48 +596,13 @@ const useFetchMoreOnScroll = (
   }, [handleScroll, containerRef]);
 };
 
-const buildFullLocationOptions = (
-  locationOptions: TLocationOptions,
-  t: (key: string) => string
-): TLocationOptions => {
-  const existingValues = new Set<string>();
-  locationOptions.forEach((group) => {
-    group.options.forEach((opt) => existingValues.add(opt.value));
-  });
-
-  const additionalOptions: TLocationOptions[number]["options"] = [];
-  for (const app of Object.values(appStoreMetadata)) {
-    const locationData = app.appData?.location;
-    if (!locationData || existingValues.has(locationData.type)) continue;
-
-    const locationType = getEventLocationType(locationData.type);
-    if (locationType?.attendeeInputType) continue;
-
-    existingValues.add(locationData.type);
-    const translated = t(locationData.label);
-    additionalOptions.push({
-      value: locationData.type,
-      label: translated !== locationData.label ? translated : locationData.label || app.name,
-      icon: app.logo,
-    });
-  }
-
-  if (additionalOptions.length === 0) return locationOptions;
-
-  const conferencingGroup = locationOptions.find(
-    (g) => g.label.toLowerCase().includes("conferencing") || g.label.toLowerCase().includes("video")
-  );
-
-  if (conferencingGroup) {
-    return locationOptions.map((group) => {
-      if (group === conferencingGroup) {
-        return { ...group, options: [...group.options, ...additionalOptions] };
-      }
-      return group;
-    });
-  }
-
-  return [...locationOptions, { label: t("conferencing"), options: additionalOptions }];
+const buildFullLocationOptions = (locationOptions: TLocationOptions): TLocationOptions => {
+  return locationOptions
+    .map((group) => ({
+      ...group,
+      options: group.options.filter((opt) => isAllowedOnlineConferencingLocation(opt.value)),
+    }))
+    .filter((group) => group.options.length > 0);
 };
 
 type HostListProps = {
@@ -718,7 +673,6 @@ const HostList = ({
 };
 
 const useHostLocationsData = (eventTypeId: number, enabled: boolean, locationOptions: TLocationOptions) => {
-  const { t } = useLocale();
   const containerRef = useRef<HTMLDivElement>(null);
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
@@ -730,9 +684,8 @@ const useHostLocationsData = (eventTypeId: number, enabled: boolean, locationOpt
   const hostsWithApps = useMemo(() => data?.pages.flatMap((page) => page.hosts) ?? [], [data]);
   const hostDataMap = useMemo(() => new Map(hostsWithApps.map((h) => [h.userId, h])), [hostsWithApps]);
   const fullLocationOptions = useMemo(() => {
-    const full = buildFullLocationOptions(locationOptions, t);
-    return filterOutBookerInputLocations(full);
-  }, [locationOptions, t]);
+    return filterOutBookerInputLocations(buildFullLocationOptions(locationOptions));
+  }, [locationOptions]);
 
   useFetchMoreOnScroll(containerRef, hasNextPage, isFetchingNextPage, fetchNextPage);
 
@@ -863,17 +816,20 @@ export const HostLocations = ({ eventTypeId, locationOptions }: HostLocationsPro
           Badge={!isOrg ? <UpgradeBadge /> : undefined}
         />
         {enablePerHostLocations && (
-          <HostList
-            hosts={hosts}
-            hostDataMap={hostDataMap}
-            locationOptions={fullLocationOptions}
-            eventTypeId={eventTypeId}
-            onLocationChange={handleLocationChange}
-            containerRef={containerRef}
-            isLoading={isLoading}
-            isFetchingNextPage={isFetchingNextPage}
-            onOpenMassApply={() => setIsMassApplyDialogOpen(true)}
-          />
+          <>
+            {fullLocationOptions.length === 0 && <ConnectGoogleMeetPrompt />}
+            <HostList
+              hosts={hosts}
+              hostDataMap={hostDataMap}
+              locationOptions={fullLocationOptions}
+              eventTypeId={eventTypeId}
+              onLocationChange={handleLocationChange}
+              containerRef={containerRef}
+              isLoading={isLoading}
+              isFetchingNextPage={isFetchingNextPage}
+              onOpenMassApply={() => setIsMassApplyDialogOpen(true)}
+            />
+          </>
         )}
       </div>
       <MassApplyLocationDialog

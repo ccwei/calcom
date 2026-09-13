@@ -9,17 +9,28 @@ import type { Ensure, Optional } from "@calcom/types/utils";
 import type { TFunction } from "i18next";
 import { isValidPhoneNumber } from "libphonenumber-js/max";
 import { z } from "zod";
-
 import type { EventLocationTypeFromAppMeta } from "../types/App";
 import {
   DailyLocationType as importedDailyLocationType,
   MeetLocationType as importedMeetLocationType,
   MSTeamsLocationType as importedMSTeamsLocationType,
+  ZoomLocationType as importedZoomLocationType,
 } from "./constants";
 
 export const MeetLocationType = importedMeetLocationType;
+export const ZoomLocationType = importedZoomLocationType;
 export const MSTeamsLocationType = importedMSTeamsLocationType;
 export const DailyLocationType = importedDailyLocationType;
+export {
+  ALLOWED_ONLINE_CONFERENCING_APP_SLUGS,
+  ALLOWED_ONLINE_CONFERENCING_LOCATION_TYPES,
+  eventHasInstalledOnlineConferencingLocation,
+  getInstalledOnlineConferencingLocationTypes,
+  hasAllowedOnlineConferencingLocation,
+  hasInstalledOnlineConferencingLocation,
+  isAllowedOnlineConferencingAppSlug,
+  isAllowedOnlineConferencingLocation,
+} from "./constants";
 
 export type DefaultEventLocationType = {
   default: true;

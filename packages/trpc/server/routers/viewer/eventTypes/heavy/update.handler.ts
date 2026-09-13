@@ -1,5 +1,6 @@
 import type { appDataSchemas } from "@calcom/app-store/apps.schemas.generated";
-import { DailyLocationType } from "@calcom/app-store/constants";
+import { DailyLocationType, eventHasInstalledOnlineConferencingLocation } from "@calcom/app-store/constants";
+import { getLocationGroupedOptions } from "@calcom/app-store/server";
 import { eventTypeAppMetadataOptionalSchema } from "@calcom/app-store/zod-utils";
 import { CalVideoSettingsRepository } from "@calcom/features/calVideoSettings/repositories/CalVideoSettingsRepository";
 import updateChildrenEventTypes from "@calcom/features/ee/managed-event-types/lib/handleChildrenEventTypes";
@@ -108,6 +109,7 @@ export const updateHandler = async ({ ctx, input }: UpdateOptions) => {
     select: {
       title: true,
       locations: true,
+      schedulingType: true,
       description: true,
       seatsPerTimeSlot: true,
       recurringEvent: true,
@@ -199,6 +201,26 @@ export const updateHandler = async ({ ctx, input }: UpdateOptions) => {
 
   if (input.teamId && eventType.team?.id && input.teamId !== eventType.team.id) {
     throw new TRPCError({ code: "UNAUTHORIZED" });
+  }
+
+  const storedLocations = eventTypeLocations.safeParse(eventType.locations ?? []).data ?? [];
+  const locationsToValidate = locations ?? storedLocations;
+  const translation = await getTranslation(ctx.user.locale ?? "en", "common");
+  const locationOptions = await getLocationGroupedOptions(
+    eventType.team?.id ? { teamId: eventType.team.id } : { userId: ctx.user.id },
+    translation
+  );
+  if (
+    !eventHasInstalledOnlineConferencingLocation({
+      locations: locationsToValidate,
+      locationOptions,
+      schedulingType: eventType.schedulingType,
+    })
+  ) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "connect_google_meet_required_error",
+    });
   }
 
   const finalSeatsPerTimeSlot =

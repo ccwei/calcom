@@ -2446,6 +2446,8 @@
   "awaiting_approval": "Awaiting approval",
   "requires_google_calendar": "This app requires a Google Calendar connection",
   "event_type_requires_google_calendar": "The \"Add to calendar\" for this event type needs to be a Google Calendar for Meet to work. Connect it <0>here</0>.",
+  "connect_google_meet_required": "Events must use Google Meet or Zoom. <0>Connect Google Meet</0> to continue.",
+  "connect_google_meet_required_error": "Connect Google Meet to continue. Event location must be Google Meet or Zoom.",
   "connected_google_calendar": "You have connected a Google Calendar account.",
   "using_meet_requires_calendar": "Using Google Meet requires a connected Google Calendar",
   "continue_to_install_google_calendar": "Continue to install Google Calendar",

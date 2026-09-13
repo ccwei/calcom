@@ -1,5 +1,3 @@
-import type { TFunction } from "i18next";
-
 import { enrichUserWithDelegationConferencingCredentialsWithoutOrgId } from "@calcom/app-store/delegationCredential";
 import { defaultVideoAppCategories } from "@calcom/app-store/utils";
 import { buildNonDelegationCredentials } from "@calcom/lib/delegationCredential";
@@ -7,9 +5,9 @@ import { prisma } from "@calcom/prisma";
 import type { Prisma } from "@calcom/prisma/client";
 import { AppCategories } from "@calcom/prisma/enums";
 import { credentialForCalendarServiceSelect } from "@calcom/prisma/selects/credential";
-
+import type { TFunction } from "i18next";
 import getEnabledAppsFromCredentials from "./_utils/getEnabledAppsFromCredentials";
-import { defaultLocations } from "./locations";
+import { isAllowedOnlineConferencingAppSlug } from "./constants";
 
 export async function getLocationGroupedOptions(
   userOrTeamId: { userId: number } | { teamId: number },
@@ -101,8 +99,8 @@ export async function getLocationGroupedOptions(
   const integrations = await getEnabledAppsFromCredentials(credentials, { filterOnCredentials: true });
 
   integrations.forEach((app) => {
-    // All apps that are labeled as a locationOption are video apps.
-    if (app.locationOption) {
+    // Event types only support installed Google Meet and Zoom.
+    if (app.locationOption && isAllowedOnlineConferencingAppSlug(app.slug)) {
       // All apps that are labeled as a locationOption are video apps. Extract the secondary category if available
       let groupByCategory =
         app.categories.length >= 2
@@ -135,29 +133,6 @@ export async function getLocationGroupedOptions(
     }
   });
 
-  defaultLocations.forEach((l) => {
-    const category = l.category;
-    if (apps[category]) {
-      apps[category] = [
-        ...apps[category],
-        {
-          label: l.label,
-          value: l.type,
-          icon: l.iconUrl,
-          supportsCustomLabel: l.supportsCustomLabel,
-        },
-      ];
-    } else {
-      apps[category] = [
-        {
-          label: l.label,
-          value: l.type,
-          icon: l.iconUrl,
-          supportsCustomLabel: l.supportsCustomLabel,
-        },
-      ];
-    }
-  });
   const locations = [];
 
   // Translating labels and pushing into array

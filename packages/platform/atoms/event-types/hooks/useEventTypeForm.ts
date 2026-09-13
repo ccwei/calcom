@@ -1,9 +1,9 @@
 import checkForMultiplePaymentApps from "@calcom/app-store/_utils/payments/checkForMultiplePaymentApps";
-import { locationsResolver } from "@calcom/app-store/locations";
+import { eventHasInstalledOnlineConferencingLocation, locationsResolver } from "@calcom/app-store/locations";
 import { DEFAULT_BEGIN_MESSAGE, DEFAULT_PROMPT_VALUE } from "@calcom/features/calAIPhone/promptTemplates";
 import type { TemplateType } from "@calcom/features/calAIPhone/zod-utils";
-import { validateCustomEventName } from "@calcom/features/eventtypes/lib/eventNaming";
 import { stripChildrenForPayload } from "@calcom/features/eventtypes/lib/childrenEventType";
+import { validateCustomEventName } from "@calcom/features/eventtypes/lib/eventNaming";
 import type {
   EventTypeSetupProps,
   EventTypeUpdateInput,
@@ -23,10 +23,12 @@ type Fields = z.infer<typeof eventTypeBookingFieldsSchema>;
 
 export const useEventTypeForm = ({
   eventType,
+  locationOptions,
   onSubmit,
   onFormStateChange,
 }: {
   eventType: EventTypeSetupProps["eventType"];
+  locationOptions?: EventTypeSetupProps["locationOptions"];
   onSubmit: (data: EventTypeUpdateInput) => void;
   onFormStateChange?: (formState: {
     isDirty: boolean;
@@ -332,6 +334,17 @@ export const useEventTypeForm = ({
       length,
       ...input
     } = dirtyValues;
+    const formLocations = values.locations ?? [];
+    if (
+      !eventHasInstalledOnlineConferencingLocation({
+        locations: formLocations,
+        locationOptions,
+        schedulingType: values.schedulingType,
+      })
+    ) {
+      throw new Error(t("connect_google_meet_required_error"));
+    }
+
     if (length && !Number(length)) throw new Error(t("event_setup_length_error"));
 
     const finalSeatsPerTimeSlot =
