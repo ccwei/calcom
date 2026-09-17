@@ -19,6 +19,7 @@ import { ErrorCode } from "@calcom/lib/errorCodes";
 import { getHolidayService } from "@calcom/lib/holidays";
 import { getHolidayEmoji } from "@calcom/lib/holidays/getHolidayEmoji";
 import { HttpError } from "@calcom/lib/http-error";
+import { getSchedulerTimeZone } from "@calcom/lib/intervalLimits/getSchedulerTimeZone";
 import { parseBookingLimit } from "@calcom/lib/intervalLimits/isBookingLimits";
 import { parseDurationLimit } from "@calcom/lib/intervalLimits/isDurationLimits";
 import { getPeriodStartDatesBetween as getPeriodStartDatesBetweenUtil } from "@calcom/lib/intervalLimits/utils/getPeriodStartDatesBetween";
@@ -749,11 +750,18 @@ export class UserAvailabilityService {
       initialData?.busyTimesFromLimitsBookings;
     if (!busyTimesFromLimitsBookings && eventType && (bookingLimits || durationLimits)) {
       const busyTimesService = getBusyTimesService();
+      const schedulerTimeZone = getSchedulerTimeZone({
+        eventScheduleTimeZone: eventType.schedule?.timeZone,
+        defaultScheduleTimeZone: user.schedules.find((s) => s.id === user.defaultScheduleId)?.timeZone,
+        eventTimeZone: eventType.timeZone,
+        userTimeZone: user.timeZone,
+      });
       const { limitDateFrom, limitDateTo } = busyTimesService.getStartEndDateforLimitCheck(
         dateFrom.toISOString(),
         dateTo.toISOString(),
         bookingLimits,
-        durationLimits
+        durationLimits,
+        schedulerTimeZone
       );
 
       // For team events with booking/duration limits, fetch bookings for all team members
@@ -771,7 +779,7 @@ export class UserAvailabilityService {
         rescheduleUid: initialData?.rescheduleUid ?? undefined,
         bookingLimits,
         durationLimits,
-        timeZone: eventType.schedule?.timeZone ?? undefined,
+        timeZone: schedulerTimeZone,
       });
     }
     const result = await this._getUserAvailability(params, {

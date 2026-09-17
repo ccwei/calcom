@@ -79,6 +79,7 @@ import { extractBaseEmail } from "@calcom/lib/extract-base-email";
 import getOrgIdFromMemberOrTeamId from "@calcom/lib/getOrgIdFromMemberOrTeamId";
 import { getTeamIdFromEventType } from "@calcom/lib/getTeamIdFromEventType";
 import { HttpError } from "@calcom/lib/http-error";
+import { getSchedulerTimeZone } from "@calcom/lib/intervalLimits/getSchedulerTimeZone";
 import { criticalLogger } from "@calcom/lib/logger.server";
 import { getPiiFreeCalendarEvent, getPiiFreeEventType } from "@calcom/lib/piiFreeData";
 import { safeStringify } from "@calcom/lib/safeStringify";
@@ -849,7 +850,13 @@ async function handler(
 
   const user = eventType.users.find((user) => user.id === eventType.userId);
   const userSchedule = user?.schedules.find((schedule) => schedule.id === user?.defaultScheduleId);
-  const eventTimeZone = eventType.schedule?.timeZone ?? userSchedule?.timeZone;
+  // Scheduler (organizer) TZ — same inheritance as availability when scheduleId is null
+  const eventTimeZone = getSchedulerTimeZone({
+    eventScheduleTimeZone: eventType.schedule?.timeZone,
+    defaultScheduleTimeZone: userSchedule?.timeZone,
+    eventTimeZone: eventType.timeZone,
+    userTimeZone: user?.timeZone,
+  });
 
   if (!skipBookingWindowCheck) {
     await validateBookingTimeIsNotOutOfBounds<typeof eventType>(
@@ -938,6 +945,7 @@ async function handler(
       eventType,
       reqBodyStart: reqBody.start,
       reqBodyRescheduleUid: reqBody.rescheduleUid,
+      schedulerTimeZone: eventTimeZone,
     });
   }
 

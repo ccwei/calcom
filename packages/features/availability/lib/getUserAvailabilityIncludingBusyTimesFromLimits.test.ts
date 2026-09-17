@@ -203,7 +203,8 @@ describe("UserAvailabilityService.getUserAvailabilityIncludingBusyTimesFromLimit
       DATE_FROM_ISO,
       DATE_TO_ISO,
       { PER_DAY: 3 },
-      null
+      null,
+      "UTC"
     );
     expect(mockBusyTimesService.getBusyTimesForLimitChecks).toHaveBeenCalledWith({
       userIds: [1],
@@ -213,6 +214,7 @@ describe("UserAvailabilityService.getUserAvailabilityIncludingBusyTimesFromLimit
       rescheduleUid: undefined,
       bookingLimits: { PER_DAY: 3 },
       durationLimits: null,
+      timeZone: "UTC",
     });
   });
 
@@ -229,7 +231,8 @@ describe("UserAvailabilityService.getUserAvailabilityIncludingBusyTimesFromLimit
       DATE_FROM_ISO,
       DATE_TO_ISO,
       null,
-      { PER_WEEK: 120 }
+      { PER_WEEK: 120 },
+      "UTC"
     );
     expect(mockBusyTimesService.getBusyTimesForLimitChecks).toHaveBeenCalledWith({
       userIds: [1],
@@ -239,6 +242,7 @@ describe("UserAvailabilityService.getUserAvailabilityIncludingBusyTimesFromLimit
       rescheduleUid: undefined,
       bookingLimits: null,
       durationLimits: { PER_WEEK: 120 },
+      timeZone: "UTC",
     });
   });
 
@@ -258,7 +262,8 @@ describe("UserAvailabilityService.getUserAvailabilityIncludingBusyTimesFromLimit
       DATE_FROM_ISO,
       DATE_TO_ISO,
       { PER_DAY: 3 },
-      { PER_WEEK: 120 }
+      { PER_WEEK: 120 },
+      "UTC"
     );
   });
 
@@ -309,6 +314,7 @@ describe("UserAvailabilityService.getUserAvailabilityIncludingBusyTimesFromLimit
       rescheduleUid: undefined,
       bookingLimits: { PER_DAY: 5 },
       durationLimits: null,
+      timeZone: "UTC",
     });
   });
 
@@ -332,6 +338,7 @@ describe("UserAvailabilityService.getUserAvailabilityIncludingBusyTimesFromLimit
       rescheduleUid: undefined,
       bookingLimits: { PER_DAY: 2 },
       durationLimits: null,
+      timeZone: "UTC",
     });
   });
 
@@ -356,6 +363,7 @@ describe("UserAvailabilityService.getUserAvailabilityIncludingBusyTimesFromLimit
       rescheduleUid: undefined,
       bookingLimits: { PER_DAY: 1 },
       durationLimits: null,
+      timeZone: "UTC",
     });
   });
 
@@ -447,6 +455,7 @@ describe("UserAvailabilityService.getUserAvailabilityIncludingBusyTimesFromLimit
       rescheduleUid: "reschedule-uid-123",
       bookingLimits: { PER_DAY: 3 },
       durationLimits: null,
+      timeZone: "UTC",
     });
   });
 });

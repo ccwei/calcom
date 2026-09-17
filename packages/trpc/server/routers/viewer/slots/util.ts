@@ -38,6 +38,7 @@ import { RESERVED_SUBDOMAINS } from "@calcom/lib/constants";
 import { getUTCOffsetByTimezone } from "@calcom/lib/dayjs";
 import { descendingLimitKeys, intervalLimitKeyToUnit } from "@calcom/lib/intervalLimits/intervalLimit";
 import type { IntervalLimit } from "@calcom/lib/intervalLimits/intervalLimitSchema";
+import { getSchedulerTimeZone } from "@calcom/lib/intervalLimits/getSchedulerTimeZone";
 import { parseBookingLimit } from "@calcom/lib/intervalLimits/isBookingLimits";
 import { parseDurationLimit } from "@calcom/lib/intervalLimits/isDurationLimits";
 import LimitManager, { LimitSources } from "@calcom/lib/intervalLimits/limitManager";
@@ -931,8 +932,18 @@ export class AvailableSlotsService {
         ? parseDurationLimit(eventType?.durationLimits)
         : null;
 
-    /** Matches checkBookingAndDurationLimits → checkBookingLimits (schedule TZ only; no host fallback). */
-    const limitCheckTimeZone = eventType.schedule?.timeZone ?? undefined;
+    /** Scheduler (organizer) TZ — matches checkBookingAndDurationLimits / availability inheritance. */
+    const organizerForLimits =
+      usersWithCredentials.find((u) => u.id === eventType.userId) ?? usersWithCredentials[0];
+    const organizerDefaultSchedule = organizerForLimits?.schedules?.find(
+      (schedule) => schedule.id === organizerForLimits.defaultScheduleId
+    );
+    const limitCheckTimeZone = getSchedulerTimeZone({
+      eventScheduleTimeZone: eventType.schedule?.timeZone,
+      defaultScheduleTimeZone: organizerDefaultSchedule?.timeZone,
+      eventTimeZone: eventType.timeZone,
+      userTimeZone: organizerForLimits?.timeZone,
+    });
 
     let busyTimesFromLimitsBookingsAllUsers: Awaited<
       ReturnType<typeof getBusyTimesService.prototype.getBusyTimesForLimitChecks>

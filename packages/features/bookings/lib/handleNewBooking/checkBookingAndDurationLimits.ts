@@ -12,6 +12,8 @@ type InputProps = {
   eventType: EventType;
   reqBodyStart: string;
   reqBodyRescheduleUid?: string;
+  /** Organizer/scheduler timezone for limit period boundaries (not booker TZ). */
+  schedulerTimeZone?: string | null;
 };
 
 export interface ICheckBookingAndDurationLimitsService {
@@ -26,7 +28,12 @@ export class CheckBookingAndDurationLimitsService {
     "checkBookingAndDurationLimits"
   );
 
-  async _checkBookingAndDurationLimits({ eventType, reqBodyStart, reqBodyRescheduleUid }: InputProps) {
+  async _checkBookingAndDurationLimits({
+    eventType,
+    reqBodyStart,
+    reqBodyRescheduleUid,
+    schedulerTimeZone,
+  }: InputProps) {
     if (
       Object.prototype.hasOwnProperty.call(eventType, "bookingLimits") ||
       Object.prototype.hasOwnProperty.call(eventType, "durationLimits")
@@ -38,7 +45,7 @@ export class CheckBookingAndDurationLimitsService {
           startAsDate,
           eventType.id,
           reqBodyRescheduleUid,
-          eventType.schedule?.timeZone
+          schedulerTimeZone ?? eventType.schedule?.timeZone
         );
       }
       if (eventType.durationLimits) {
@@ -46,7 +53,8 @@ export class CheckBookingAndDurationLimitsService {
           eventType.durationLimits as IntervalLimit,
           startAsDate,
           eventType.id,
-          reqBodyRescheduleUid
+          reqBodyRescheduleUid,
+          schedulerTimeZone ?? eventType.schedule?.timeZone
         );
       }
     }

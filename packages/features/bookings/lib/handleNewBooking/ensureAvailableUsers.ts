@@ -7,6 +7,7 @@ import { getBusyTimesService } from "@calcom/features/di/containers/BusyTimes";
 import { getUserAvailabilityService } from "@calcom/features/di/containers/GetUserAvailability";
 import { buildDateRanges } from "@calcom/features/schedules/lib/date-ranges";
 import { ErrorCode } from "@calcom/lib/errorCodes";
+import { getSchedulerTimeZone } from "@calcom/lib/intervalLimits/getSchedulerTimeZone";
 import { parseBookingLimit } from "@calcom/lib/intervalLimits/isBookingLimits";
 import { parseDurationLimit } from "@calcom/lib/intervalLimits/isDurationLimits";
 import { getPiiFreeUser } from "@calcom/lib/piiFreeData";
@@ -32,6 +33,27 @@ const getOriginalBookingDuration = (originalBooking?: BookingType) => {
   return originalBooking
     ? dayjs(originalBooking.endTime).diff(dayjs(originalBooking.startTime), "minutes")
     : undefined;
+};
+
+const getOrganizerSchedulerTimeZone = (eventType: {
+  userId: number | null;
+  timeZone: string | null;
+  schedule: { timeZone: string | null } | null;
+  users: {
+    id: number;
+    timeZone: string;
+    defaultScheduleId: number | null;
+    schedules: { id: number; timeZone: string | null }[];
+  }[];
+}) => {
+  const organizer = eventType.users.find((u) => u.id === eventType.userId) ?? eventType.users[0];
+  const defaultSchedule = organizer?.schedules.find((s) => s.id === organizer.defaultScheduleId);
+  return getSchedulerTimeZone({
+    eventScheduleTimeZone: eventType.schedule?.timeZone,
+    defaultScheduleTimeZone: defaultSchedule?.timeZone,
+    eventTimeZone: eventType.timeZone,
+    userTimeZone: organizer?.timeZone,
+  });
 };
 
 const hasDateRangeForBooking = (
@@ -88,6 +110,7 @@ const _ensureAvailableUsers = async (
           rescheduleUid: input.originalRescheduledBooking?.uid ?? null,
           bookingLimits,
           durationLimits,
+          timeZone: getOrganizerSchedulerTimeZone(eventType),
         })
       : [];
 
