@@ -54,9 +54,7 @@ import {
 import {
   shouldShowPendingActions,
   shouldShowRecurringCancelAction,
-  shouldShowIndividualReportButton,
   type BookingActionContext,
-  getReportAction,
   isActionDisabled,
 } from "./actions/bookingActions";
 import type { BookingItemProps } from "./types";
@@ -272,7 +270,6 @@ function BookingListItem(booking: BookingItemProps) {
 
   const showPendingPayment = paymentAppData.enabled && booking.payment.length && !booking.paid;
 
-  const setIsOpenReportDialog = useBookingActionsStoreContext((state) => state.setIsOpenReportDialog);
   const setIsCancelDialogOpen = useBookingActionsStoreContext((state) => state.setIsCancelDialogOpen);
   const isOpenWrongAssignmentDialog = useBookingActionsStoreContext(
     (state) => state.isOpenWrongAssignmentDialog
@@ -283,11 +280,6 @@ function BookingListItem(booking: BookingItemProps) {
   const setIsOpenRoutingTraceSheet = useBookingActionsStoreContext(
     (state) => state.setIsOpenRoutingTraceSheet
   );
-  const reportAction = getReportAction(actionContext);
-  const reportActionWithHandler = {
-    ...reportAction,
-    onClick: () => setIsOpenReportDialog(true),
-  };
 
   return (
     <div
@@ -523,21 +515,6 @@ function BookingListItem(booking: BookingItemProps) {
           {isCancelled && booking.rescheduled && (
             <div className="hidden items-center md:flex">
               <RequestSentMessage />
-            </div>
-          )}
-          {shouldShowIndividualReportButton(actionContext) && (
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="icon"
-                color="destructive"
-                StartIcon={reportActionWithHandler.icon}
-                onClick={reportActionWithHandler.onClick}
-                disabled={reportActionWithHandler.disabled}
-                data-testid={reportActionWithHandler.id}
-                className="min-h-[34px] min-w-[34px]"
-                tooltip={reportActionWithHandler.label}
-              />
             </div>
           )}
           <BookingActionsDropdown booking={booking} context="list" />

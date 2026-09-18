@@ -76,25 +76,6 @@ export function getCancelEventAction(context: BookingActionContext): ActionType 
   };
 }
 
-export function getVideoOptionsActions(context: BookingActionContext): ActionType[] {
-  const { booking, isBookingInPast, isConfirmed, isCalVideoLocation, t } = context;
-
-  return [
-    {
-      id: "view_recordings",
-      label: t("view_recordings"),
-      icon: "video",
-      disabled: !(isBookingInPast && isConfirmed && isCalVideoLocation && booking.isRecorded),
-    },
-    {
-      id: "meeting_session_details",
-      label: t("view_session_details"),
-      icon: "info",
-      disabled: !(isBookingInPast && isConfirmed && isCalVideoLocation),
-    },
-  ];
-}
-
 export function getEditEventActions(context: BookingActionContext): ActionType[] {
   const {
     booking,
@@ -178,23 +159,10 @@ export function getEditEventActions(context: BookingActionContext): ActionType[]
   return actions.filter(Boolean) as ActionType[];
 }
 
-export function getReportAction(context: BookingActionContext): ActionType {
-  const { booking, t } = context;
-
-  return {
-    id: "report",
-    label: t("report_booking"),
-    icon: "flag",
-    color: "destructive",
-    disabled: !!booking.report,
-  };
-}
-
 export function getAfterEventActions(context: BookingActionContext): ActionType[] {
-  const { booking, cardCharged, attendeeList, t } = context;
+  const { booking, cardCharged, t } = context;
 
   const actions: (ActionType | null)[] = [
-    ...getVideoOptionsActions(context),
     booking.status === BookingStatus.ACCEPTED && booking.paid && booking.payment[0]?.paymentOption === "HOLD"
       ? {
           id: "charge_card",
@@ -203,13 +171,6 @@ export function getAfterEventActions(context: BookingActionContext): ActionType[
           disabled: cardCharged,
         }
       : null,
-    {
-      id: "no_show",
-      label:
-        attendeeList.length === 1 && attendeeList[0].noShow ? t("unmark_as_no_show") : t("mark_as_no_show"),
-      icon: attendeeList.length === 1 && attendeeList[0].noShow ? "eye" : "eye-off",
-      disabled: false, // This would be controlled by booking state in the component
-    },
   ];
 
   return actions.filter(Boolean) as ActionType[];
@@ -228,12 +189,6 @@ export function shouldShowEditActions(context: BookingActionContext): boolean {
 export function shouldShowRecurringCancelAction(context: BookingActionContext): boolean {
   const { isTabRecurring, isRecurring } = context;
   return isTabRecurring && isRecurring;
-}
-
-export function shouldShowIndividualReportButton(context: BookingActionContext): boolean {
-  const { booking, isPending, isUpcoming, isCancelled, isRejected } = context;
-  const hasDropdown = shouldShowEditActions(context);
-  return !booking.report && !hasDropdown && (isCancelled || isRejected || (isPending && isUpcoming));
 }
 
 export function isActionDisabled(actionId: string, context: BookingActionContext): boolean {
@@ -272,10 +227,6 @@ export function isActionDisabled(actionId: string, context: BookingActionContext
       );
     case "cancel":
       return isDisabledCancelling || isBookingInPast || isCancelled || isRejected;
-    case "view_recordings":
-      return !(isBookingInPast && booking.status === BookingStatus.ACCEPTED && context.isCalVideoLocation);
-    case "meeting_session_details":
-      return !(isBookingInPast && booking.status === BookingStatus.ACCEPTED && context.isCalVideoLocation);
     case "charge_card":
       return context.cardCharged;
     case "reroute":
@@ -289,7 +240,7 @@ export function isActionDisabled(actionId: string, context: BookingActionContext
 }
 
 export function getActionLabel(actionId: string, context: BookingActionContext): string {
-  const { isTabRecurring, isRecurring, attendeeList, cardCharged, t } = context;
+  const { isTabRecurring, isRecurring, cardCharged, t } = context;
 
   switch (actionId) {
     case "reject":
@@ -298,10 +249,6 @@ export function getActionLabel(actionId: string, context: BookingActionContext):
       return (isTabRecurring || context.isTabUnconfirmed) && isRecurring ? t("confirm_all") : t("confirm");
     case "cancel":
       return isTabRecurring && isRecurring ? t("cancel_all_remaining") : t("cancel_event");
-    case "no_show":
-      return attendeeList.length === 1 && attendeeList[0].noShow
-        ? t("unmark_as_no_show")
-        : t("mark_as_no_show");
     case "charge_card":
       return cardCharged ? t("no_show_fee_charged") : t("collect_no_show_fee");
     default:

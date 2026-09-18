@@ -5,7 +5,6 @@ import { BookingStatus, SchedulingType } from "@calcom/prisma/enums";
 import {
   getPendingActions,
   getCancelEventAction,
-  getVideoOptionsActions,
   getEditEventActions,
   getAfterEventActions,
   shouldShowPendingActions,
@@ -216,47 +215,6 @@ describe("Booking Actions", () => {
     });
   });
 
-  describe("getVideoOptionsActions", () => {
-    it("should return video actions for past confirmed bookings", () => {
-      const context = createMockContext({
-        isBookingInPast: true,
-        isConfirmed: true,
-        isCalVideoLocation: true,
-        booking: {
-          ...createMockContext().booking,
-          isRecorded: true,
-        },
-      });
-      const actions = getVideoOptionsActions(context);
-
-      expect(actions).toHaveLength(2);
-      expect(actions[0].id).toBe("view_recordings");
-      expect(actions[1].id).toBe("meeting_session_details");
-      expect(actions[0].disabled).toBe(false);
-      expect(actions[1].disabled).toBe(false);
-    });
-
-    it("should disable video actions for upcoming bookings", () => {
-      const context = createMockContext({ isBookingInPast: false });
-      const actions = getVideoOptionsActions(context);
-
-      expect(actions[0].disabled).toBe(true);
-      expect(actions[1].disabled).toBe(true);
-    });
-
-    it("should disable video actions for non-Cal video locations", () => {
-      const context = createMockContext({
-        isBookingInPast: true,
-        isConfirmed: true,
-        isCalVideoLocation: false,
-      });
-      const actions = getVideoOptionsActions(context);
-
-      expect(actions[0].disabled).toBe(true);
-      expect(actions[1].disabled).toBe(true);
-    });
-  });
-
   describe("getEditEventActions", () => {
     it("should return basic edit actions", () => {
       const context = createMockContext();
@@ -458,14 +416,14 @@ describe("Booking Actions", () => {
   });
 
   describe("getAfterEventActions", () => {
-    it("should include video actions and no-show action", () => {
+    it("should not include video or no-show actions", () => {
       const context = createMockContext({ isBookingInPast: true, isConfirmed: true });
       const actions = getAfterEventActions(context);
 
       const actionIds = actions.map((a) => a.id);
-      expect(actionIds).toContain("view_recordings");
-      expect(actionIds).toContain("meeting_session_details");
-      expect(actionIds).toContain("no_show");
+      expect(actionIds).not.toContain("view_recordings");
+      expect(actionIds).not.toContain("meeting_session_details");
+      expect(actionIds).not.toContain("no_show");
     });
 
     it("should include charge card action for held payments", () => {
@@ -490,17 +448,6 @@ describe("Booking Actions", () => {
 
       const chargeCardAction = actions.find((a) => a.id === "charge_card");
       expect(chargeCardAction).toBeDefined();
-    });
-
-    it("should show correct no-show label for single attendee", () => {
-      const context = createMockContext({
-        attendeeList: [{ name: "John", email: "john@example.com", id: 1, noShow: true, phoneNumber: null }],
-      });
-      const actions = getAfterEventActions(context);
-
-      const noShowAction = actions.find((a) => a.id === "no_show");
-      expect(noShowAction?.label).toBe("unmark_as_no_show");
-      expect(noShowAction?.icon).toBe("eye");
     });
   });
 
@@ -590,13 +537,6 @@ describe("Booking Actions", () => {
       });
 
       expect(isActionDisabled("cancel", futureContext)).toBe(false);
-    });
-
-    it("should disable video actions for non-past bookings", () => {
-      const context = createMockContext({ isBookingInPast: false });
-
-      expect(isActionDisabled("view_recordings", context)).toBe(true);
-      expect(isActionDisabled("meeting_session_details", context)).toBe(true);
     });
 
     it("should disable charge card action when already charged", () => {
@@ -749,14 +689,6 @@ describe("Booking Actions", () => {
       expect(getActionLabel("reject", context)).toBe("reject_all");
       expect(getActionLabel("confirm", context)).toBe("confirm_all");
       expect(getActionLabel("cancel", context)).toBe("cancel_all_remaining");
-    });
-
-    it("should return correct no-show label based on attendee state", () => {
-      const contextWithNoShow = createMockContext({
-        attendeeList: [{ name: "John", email: "john@example.com", id: 1, noShow: true, phoneNumber: null }],
-      });
-
-      expect(getActionLabel("no_show", contextWithNoShow)).toBe("unmark_as_no_show");
     });
   });
 });

@@ -3,7 +3,6 @@ import type { bookingMetadataSchema } from "@calcom/prisma/zod-utils";
 import { trpc } from "@calcom/trpc/react";
 import classNames from "@calcom/ui/classNames";
 import { Button } from "@calcom/ui/components/button";
-import { Dialog, DialogClose, DialogContent, DialogFooter } from "@calcom/ui/components/dialog";
 import {
   Dropdown,
   DropdownItem,
@@ -17,20 +16,16 @@ import {
 import type { ActionType } from "@calcom/ui/components/table";
 import { showToast } from "@calcom/ui/components/toast";
 import { Tooltip } from "@calcom/ui/components/tooltip";
-import { MeetingSessionDetailsDialog } from "@calcom/web/modules/ee/video/components/MeetingSessionDetailsDialog";
 import { AddGuestsDialog } from "@components/dialog/AddGuestsDialog";
 import { CancelBookingDialog } from "@components/dialog/CancelBookingDialog";
 import { ChargeCardDialog } from "@components/dialog/ChargeCardDialog";
 import { EditLocationDialog } from "@components/dialog/EditLocationDialog";
 import { ReassignDialog } from "@components/dialog/ReassignDialog";
 import { RejectionReasonDialog } from "@components/dialog/RejectionReasonDialog";
-import { ReportBookingDialog } from "@components/dialog/ReportBookingDialog";
 import { RerouteDialog } from "@components/dialog/RerouteDialog";
 import { RescheduleDialog } from "@components/dialog/RescheduleDialog";
 import { WrongAssignmentDialog } from "@components/dialog/WrongAssignmentDialog";
-import { useState } from "react";
 import type { z } from "zod";
-import ViewRecordingsDialog from "~/ee/video/components/ViewRecordingsDialog";
 import { useBookingConfirmation } from "../hooks/useBookingConfirmation";
 import { RoutingTraceSheet } from "../RoutingTraceSheet";
 import type { BookingItemProps } from "../types";
@@ -41,7 +36,6 @@ import {
   getCancelEventAction,
   getEditEventActions,
   getPendingActions,
-  getReportAction,
   shouldShowEditActions,
   shouldShowPendingActions,
 } from "./bookingActions";
@@ -94,20 +88,6 @@ export function BookingActionsDropdown({
   // Use store for all other dialog states
   const chargeCardDialogIsOpen = useBookingActionsStoreContext((state) => state.chargeCardDialogIsOpen);
   const setChargeCardDialogIsOpen = useBookingActionsStoreContext((state) => state.setChargeCardDialogIsOpen);
-  const viewRecordingsDialogIsOpen = useBookingActionsStoreContext(
-    (state) => state.viewRecordingsDialogIsOpen
-  );
-  const setViewRecordingsDialogIsOpen = useBookingActionsStoreContext(
-    (state) => state.setViewRecordingsDialogIsOpen
-  );
-  const meetingSessionDetailsDialogIsOpen = useBookingActionsStoreContext(
-    (state) => state.meetingSessionDetailsDialogIsOpen
-  );
-  const setMeetingSessionDetailsDialogIsOpen = useBookingActionsStoreContext(
-    (state) => state.setMeetingSessionDetailsDialogIsOpen
-  );
-  const isNoShowDialogOpen = useBookingActionsStoreContext((state) => state.isNoShowDialogOpen);
-  const setIsNoShowDialogOpen = useBookingActionsStoreContext((state) => state.setIsNoShowDialogOpen);
   const isOpenRescheduleDialog = useBookingActionsStoreContext((state) => state.isOpenRescheduleDialog);
   const setIsOpenRescheduleDialog = useBookingActionsStoreContext((state) => state.setIsOpenRescheduleDialog);
   const isOpenReassignDialog = useBookingActionsStoreContext((state) => state.isOpenReassignDialog);
@@ -116,8 +96,6 @@ export function BookingActionsDropdown({
   const setIsOpenLocationDialog = useBookingActionsStoreContext((state) => state.setIsOpenLocationDialog);
   const isOpenAddGuestsDialog = useBookingActionsStoreContext((state) => state.isOpenAddGuestsDialog);
   const setIsOpenAddGuestsDialog = useBookingActionsStoreContext((state) => state.setIsOpenAddGuestsDialog);
-  const isOpenReportDialog = useBookingActionsStoreContext((state) => state.isOpenReportDialog);
-  const setIsOpenReportDialog = useBookingActionsStoreContext((state) => state.setIsOpenReportDialog);
   const isOpenWrongAssignmentDialog = useBookingActionsStoreContext(
     (state) => state.isOpenWrongAssignmentDialog
   );
@@ -145,16 +123,6 @@ export function BookingActionsDropdown({
     };
   });
 
-  const noShowMutation = trpc.viewer.loggedInViewerRouter.markNoShow.useMutation({
-    onSuccess: async (data) => {
-      showToast(data.message, "success");
-      await utils.viewer.bookings.invalidate();
-    },
-    onError: (err) => {
-      showToast(err.message, "error");
-    },
-  });
-
   const setLocationMutation = trpc.viewer.bookings.editLocation.useMutation({
     onSuccess: () => {
       showToast(t("location_updated"), "success");
@@ -180,13 +148,6 @@ export function BookingActionsDropdown({
   const isRejected = booking.status === "REJECTED";
   const isPending = booking.status === "PENDING";
   const isRescheduled = booking.fromReschedule !== null;
-
-  const getBookingStatus = (): "upcoming" | "past" | "cancelled" | "rejected" => {
-    if (isCancelled) return "cancelled";
-    if (isRejected) return "rejected";
-    if (isBookingInPast) return "past";
-    return "upcoming";
-  };
 
   const isBookingFromRoutingForm = !!booking.routedFromRoutingFormReponse && !!booking.eventType?.team;
 
@@ -301,113 +262,8 @@ export function BookingActionsDropdown({
   const baseAfterEventActions = getAfterEventActions(actionContext);
   const afterEventActions: ActionType[] = baseAfterEventActions.map((action) => ({
     ...action,
-    onClick:
-      action.id === "view_recordings"
-        ? () => setViewRecordingsDialogIsOpen(true)
-        : action.id === "meeting_session_details"
-          ? () => setMeetingSessionDetailsDialogIsOpen(true)
-          : action.id === "charge_card"
-            ? () => setChargeCardDialogIsOpen(true)
-            : action.id === "no_show"
-              ? () => {
-                  if (attendeeList.length === 1) {
-                    const attendee = attendeeList[0];
-                    noShowMutation.mutate({
-                      bookingUid: booking.uid,
-                      attendees: [{ email: attendee.email, noShow: !attendee.noShow }],
-                    });
-                    return;
-                  }
-                  setIsNoShowDialogOpen(true);
-                }
-              : undefined,
-    disabled:
-      action.disabled ||
-      (action.id === "no_show" && !(isBookingInPast || isOngoing)) ||
-      (action.id === "view_recordings" && !booking.isRecorded),
+    onClick: action.id === "charge_card" ? () => setChargeCardDialogIsOpen(true) : undefined,
   })) as ActionType[];
-
-  const reportAction = getReportAction(actionContext);
-  const reportActionWithHandler = {
-    ...reportAction,
-    onClick: () => setIsOpenReportDialog(true),
-  };
-
-  const NoShowAttendeesDialog = ({
-    bookingUid,
-    attendees,
-    setIsOpen,
-    isOpen,
-  }: {
-    bookingUid: string;
-    attendees: Array<{
-      name: string;
-      email: string;
-      id: number;
-      noShow: boolean;
-      phoneNumber: string | null;
-    }>;
-    setIsOpen: (open: boolean) => void;
-    isOpen: boolean;
-  }) => {
-    const [noShowAttendees, setNoShowAttendees] = useState<
-      Array<{
-        email: string;
-        noShow: boolean;
-      }>
-    >(attendees.map((attendee) => ({ email: attendee.email, noShow: attendee.noShow })));
-
-    const noShowMutation = trpc.viewer.loggedInViewerRouter.markNoShow.useMutation({
-      onSuccess: async (data) => {
-        showToast(data.message, "success");
-        setIsOpen(false);
-        await utils.viewer.bookings.invalidate();
-      },
-      onError: (err) => {
-        showToast(err.message, "error");
-      },
-    });
-
-    return (
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent title={t("mark_as_no_show")} enableOverflow>
-          <div className="stack-y-2">
-            {attendees.map((attendee, index) => (
-              <label key={attendee.email} className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={noShowAttendees[index]?.noShow || false}
-                  onChange={(e) => {
-                    const newNoShowAttendees = [...noShowAttendees];
-                    newNoShowAttendees[index] = {
-                      email: attendee.email,
-                      noShow: e.target.checked,
-                    };
-                    setNoShowAttendees(newNoShowAttendees);
-                  }}
-                />
-                <span>
-                  {attendee.name} ({attendee.email})
-                </span>
-              </label>
-            ))}
-          </div>
-          <DialogFooter>
-            <DialogClose />
-            <Button
-              onClick={() => {
-                noShowMutation.mutate({
-                  bookingUid,
-                  attendees: noShowAttendees,
-                });
-              }}>
-              {t("confirm")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    );
-  };
 
   const parsedBooking = {
     ...booking,
@@ -444,13 +300,6 @@ export function BookingActionsDropdown({
         setIsOpenDialog={setIsOpenAddGuestsDialog}
         bookingId={booking.id}
       />
-      <ReportBookingDialog
-        isOpenDialog={isOpenReportDialog}
-        setIsOpenDialog={setIsOpenReportDialog}
-        bookingUid={booking.uid}
-        isRecurring={isRecurring}
-        status={getBookingStatus()}
-      />
       {isBookingFromRoutingForm && (
         <>
           <WrongAssignmentDialog
@@ -474,30 +323,6 @@ export function BookingActionsDropdown({
           bookingId={booking.id}
           paymentAmount={booking.payment[0].amount}
           paymentCurrency={booking.payment[0].currency}
-        />
-      )}
-      {isCalVideoLocation && (
-        <ViewRecordingsDialog
-          booking={booking}
-          isOpenDialog={viewRecordingsDialogIsOpen}
-          setIsOpenDialog={setViewRecordingsDialogIsOpen}
-          timeFormat={booking.loggedInUser.userTimeFormat ?? null}
-        />
-      )}
-      {isCalVideoLocation && meetingSessionDetailsDialogIsOpen && (
-        <MeetingSessionDetailsDialog
-          booking={booking}
-          isOpenDialog={meetingSessionDetailsDialogIsOpen}
-          setIsOpenDialog={setMeetingSessionDetailsDialogIsOpen}
-          timeFormat={booking.loggedInUser.userTimeFormat ?? null}
-        />
-      )}
-      {isNoShowDialogOpen && (
-        <NoShowAttendeesDialog
-          bookingUid={booking.uid}
-          attendees={attendeeList}
-          setIsOpen={setIsNoShowDialogOpen}
-          isOpen={isNoShowDialogOpen}
         />
       )}
       <CancelBookingDialog
@@ -571,16 +396,11 @@ export function BookingActionsDropdown({
     // Check if any after event action is available
     const hasAvailableAfterAction = afterEventActions.some((action) => !action.disabled);
 
-    // Check report and cancel actions
-    const isReportAvailable = !reportActionWithHandler.disabled;
+    // Check cancel action
     const isCancelAvailable = !cancelEventAction.disabled;
 
     return (
-      hasAvailablePendingAction ||
-      hasAvailableEditAction ||
-      hasAvailableAfterAction ||
-      isReportAvailable ||
-      isCancelAvailable
+      hasAvailablePendingAction || hasAvailableEditAction || hasAvailableAfterAction || isCancelAvailable
     );
   };
 
@@ -684,47 +504,33 @@ export function BookingActionsDropdown({
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
-            <DropdownMenuLabel className="px-2 pb-1 pt-1.5">{t("after_event")}</DropdownMenuLabel>
-            {afterEventActions.map((action) => (
-              <DropdownMenuItem className="rounded-lg" key={action.id} disabled={action.disabled}>
-                <DropdownItem
-                  type="button"
-                  color={action.color}
-                  StartIcon={action.icon}
-                  href={action.disabled ? undefined : action.href}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    action.onClick?.(e);
-                  }}
-                  disabled={action.disabled}
-                  data-booking-uid={action.bookingUid}
-                  data-testid={action.id}
-                  className={action.disabled ? "text-muted" : undefined}>
-                  {action.label}
-                </DropdownItem>
-              </DropdownMenuItem>
-            ))}
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="rounded-lg"
-                key={reportActionWithHandler.id}
-                disabled={reportActionWithHandler.disabled}>
-                <DropdownItem
-                  type="button"
-                  color={reportActionWithHandler.color}
-                  StartIcon={reportActionWithHandler.icon}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    reportActionWithHandler.onClick?.();
-                  }}
-                  disabled={reportActionWithHandler.disabled}
-                  data-testid={reportActionWithHandler.id}
-                  className={reportActionWithHandler.disabled ? "text-muted" : undefined}>
-                  {reportActionWithHandler.label}
-                </DropdownItem>
-              </DropdownMenuItem>
-              {isBookingFromRoutingForm && (
+            {afterEventActions.length > 0 && (
+              <>
+                <DropdownMenuLabel className="px-2 pb-1 pt-1.5">{t("after_event")}</DropdownMenuLabel>
+                {afterEventActions.map((action) => (
+                  <DropdownMenuItem className="rounded-lg" key={action.id} disabled={action.disabled}>
+                    <DropdownItem
+                      type="button"
+                      color={action.color}
+                      StartIcon={action.icon}
+                      href={action.disabled ? undefined : action.href}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        action.onClick?.(e);
+                      }}
+                      disabled={action.disabled}
+                      data-booking-uid={action.bookingUid}
+                      data-testid={action.id}
+                      className={action.disabled ? "text-muted" : undefined}>
+                      {action.label}
+                    </DropdownItem>
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+              </>
+            )}
+            {isBookingFromRoutingForm && (
+              <>
                 <DropdownMenuItem className="rounded-lg" key="report_wrong_assignment">
                   <DropdownItem
                     type="button"
@@ -738,9 +544,9 @@ export function BookingActionsDropdown({
                     {t("report_wrong_assignment")}
                   </DropdownItem>
                 </DropdownMenuItem>
-              )}
-            </>
-            <DropdownMenuSeparator />
+                <DropdownMenuSeparator />
+              </>
+            )}
             <Tooltip
               content={isBookingInPast ? t("cannot_cancel_past_booking") : ""}
               side="left"
