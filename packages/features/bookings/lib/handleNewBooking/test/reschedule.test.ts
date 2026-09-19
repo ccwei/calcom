@@ -2859,5 +2859,125 @@ describe("handleNewBooking", () => {
       },
       timeout
     );
+
+    test(
+      `should update Zoom meeting on reschedule even when skipCalendarSyncTaskCreation is true (calendar inbound sync)`,
+      async () => {
+        const handleNewBooking = getNewBookingHandler();
+        const booker = getBooker({
+          email: "booker@example.com",
+          name: "Booker",
+        });
+
+        const organizer = getOrganizer({
+          name: "Organizer",
+          email: "organizer@example.com",
+          id: 101,
+          schedules: [TestData.schedules.IstWorkHours],
+          credentials: [getGoogleCalendarCredential(), getZoomAppCredential()],
+          selectedCalendars: [TestData.selectedCalendars.google],
+        });
+
+        const { dateString: plus1DateString } = getDate({ dateIncrement: 1 });
+        const uidOfBookingToBeRescheduled = "zoomCalendarSyncRescheduleUid";
+        const iCalUID = `${uidOfBookingToBeRescheduled}@Cal.com`;
+        const oldZoomUrl = "https://us06web.zoom.us/j/84556732178?pwd=oldpwd";
+        const newZoomUrl = "https://us06web.zoom.us/j/83436135820?pwd=newpwd";
+
+        await createBookingScenario(
+          getScenarioData({
+            eventTypes: [
+              {
+                id: 1,
+                slotInterval: 30,
+                length: 30,
+                users: [{ id: 101 }],
+                locations: [{ type: BookingLocations.ZoomVideo }],
+              },
+            ],
+            bookings: [
+              {
+                uid: uidOfBookingToBeRescheduled,
+                eventTypeId: 1,
+                status: BookingStatus.ACCEPTED,
+                startTime: `${plus1DateString}T05:00:00.000Z`,
+                endTime: `${plus1DateString}T05:30:00.000Z`,
+                metadata: { videoCallUrl: oldZoomUrl },
+                references: [
+                  {
+                    type: appStoreMetadata.zoomvideo.type,
+                    uid: "84556732178",
+                    meetingId: "84556732178",
+                    meetingPassword: "oldpwd",
+                    meetingUrl: oldZoomUrl,
+                    credentialId: 2,
+                  },
+                  {
+                    type: appStoreMetadata.googlecalendar.type,
+                    uid: "MOCK_CALENDAR_ID",
+                    meetingId: "MOCK_CALENDAR_ID",
+                    meetingPassword: "MOCK_PASSWORD",
+                    meetingUrl: "https://UNUSED_URL",
+                    externalCalendarId: "MOCK_EXTERNAL_CALENDAR_ID",
+                    credentialId: 1,
+                  },
+                ],
+                attendees: [
+                  getMockBookingAttendee({
+                    id: 1,
+                    name: booker.name,
+                    email: booker.email,
+                  }),
+                ],
+                location: BookingLocations.ZoomVideo,
+                iCalUID,
+              },
+            ],
+            organizer,
+            apps: [TestData.apps["google-calendar"], TestData.apps["zoomvideo"]],
+          })
+        );
+
+        const videoMock = mockSuccessfulVideoMeetingCreation({
+          metadataLookupKey: "zoomvideo",
+          videoMeetingData: {
+            id: "84556732178",
+            password: "oldpwd",
+            url: oldZoomUrl,
+          },
+        });
+
+        const calendarMock = await mockCalendarToHaveNoBusySlots("googlecalendar", {
+          update: {
+            uid: "MOCK_CALENDAR_ID",
+            iCalUID,
+          },
+        });
+
+        const mockBookingData = getMockRequestDataForBooking({
+          data: {
+            eventTypeId: 1,
+            rescheduleUid: uidOfBookingToBeRescheduled,
+            start: `${plus1DateString}T06:00:00.000Z`,
+            end: `${plus1DateString}T06:30:00.000Z`,
+            responses: {
+              email: booker.email,
+              name: booker.name,
+              location: { optionValue: "", value: BookingLocations.ZoomVideo },
+            },
+          },
+        });
+
+        await handleNewBooking({
+          bookingData: mockBookingData,
+          skipCalendarSyncTaskCreation: true,
+        });
+
+        expect(videoMock.updateMeetingCalls.length).toBe(1);
+        expect(videoMock.createMeetingCalls.length).toBe(0);
+        expect(calendarMock.updateEventCalls.length).toBe(0);
+      },
+      timeout
+    );
   });
 });

@@ -1,24 +1,21 @@
 import prismaMock from "@calcom/testing/lib/__mocks__/prisma";
-
 import {
   createBookingScenario,
+  getBooker,
   getDate,
   getGoogleCalendarCredential,
-  TestData,
   getOrganizer,
-  getBooker,
   getScenarioData,
-  mockCalendarToHaveNoBusySlots,
   mockCalendar,
+  mockCalendarToHaveNoBusySlots,
+  mockSuccessfulVideoMeetingCreation,
+  TestData,
 } from "@calcom/testing/lib/bookingScenario/bookingScenario";
+import { BookingStatus } from "@calcom/prisma/enums";
 import { expectBookingToBeInDatabase } from "@calcom/testing/lib/bookingScenario/expects";
 import { getMockRequestDataForBooking } from "@calcom/testing/lib/bookingScenario/getMockRequestDataForBooking";
 import { setupAndTeardown } from "@calcom/testing/lib/bookingScenario/setupAndTeardown";
-
 import { describe, expect, test } from "vitest";
-
-import { BookingStatus } from "@calcom/prisma/enums";
-
 import { getNewBookingHandler } from "./getNewBookingHandler";
 
 setupAndTeardown();
@@ -208,7 +205,7 @@ describe("handleNewBooking - Booking Flags", () => {
   });
 
   describe("skipCalendarSyncTaskCreation flag", () => {
-    test("should skip calendar sync when skipCalendarSyncTaskCreation is true", async () => {
+    test("should skip calendar sync when skipCalendarSyncTaskCreation is true but still create video meetings", async () => {
       const handleNewBooking = getNewBookingHandler();
       const booker = getBooker({
         email: "booker@example.com",
@@ -249,6 +246,10 @@ describe("handleNewBooking - Booking Flags", () => {
         create: {
           uid: "MOCK_ID",
         },
+      });
+
+      mockSuccessfulVideoMeetingCreation({
+        metadataLookupKey: "dailyvideo",
       });
 
       const mockBookingData = getMockRequestDataForBooking({
@@ -294,7 +295,9 @@ describe("handleNewBooking - Booking Flags", () => {
         where: { uid: createdBooking.uid },
         include: { references: true },
       });
-      expect(actualBooking?.references).toEqual([]);
+      // Calendar writes are skipped to avoid sync loops, but video meetings are still created.
+      expect(actualBooking?.references.some((ref) => ref.type.includes("_calendar"))).toBe(false);
+      expect(actualBooking?.references.some((ref) => ref.type.includes("_video"))).toBe(true);
     });
   });
 
@@ -345,6 +348,10 @@ describe("handleNewBooking - Booking Flags", () => {
         },
       });
 
+      mockSuccessfulVideoMeetingCreation({
+        metadataLookupKey: "dailyvideo",
+      });
+
       const mockBookingData = getMockRequestDataForBooking({
         data: {
           eventTypeId: 1,
@@ -390,7 +397,8 @@ describe("handleNewBooking - Booking Flags", () => {
         where: { uid: createdBooking.uid },
         include: { references: true },
       });
-      expect(actualBooking?.references).toEqual([]);
+      expect(actualBooking?.references.some((ref) => ref.type.includes("_calendar"))).toBe(false);
+      expect(actualBooking?.references.some((ref) => ref.type.includes("_video"))).toBe(true);
     });
   });
 });

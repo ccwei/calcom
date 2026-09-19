@@ -400,11 +400,26 @@ export const mergeBookingResponsesWithEventData = (
     overrides.notes = event.description;
   }
 
-  if (event.location) {
+  // External calendars often store the video join URL as "location" (e.g. https://zoom.us/j/...).
+  // Overwriting Cal.com's integrations:* location with that URL skips dedicated video updates on
+  // reschedule (isDedicatedIntegration requires "integrations:"). Keep the booking location type.
+  const preserveBookingLocation = shouldPreserveBookingLocation(booking, baseResponses);
+  if (event.location && !preserveBookingLocation) {
     overrides.location = {
       value: event.location,
       label: event.location,
       optionValue: event.location,
+    };
+  } else if (
+    preserveBookingLocation &&
+    !getResponseLocationValue(baseResponses) &&
+    typeof booking.location === "string" &&
+    booking.location.includes("integrations:")
+  ) {
+    overrides.location = {
+      value: booking.location,
+      label: booking.location,
+      optionValue: "",
     };
   }
 
@@ -412,6 +427,33 @@ export const mergeBookingResponsesWithEventData = (
     ...baseResponses,
     ...overrides,
   };
+};
+
+const getResponseLocationValue = (responses: Record<string, unknown>): string | undefined => {
+  const location = responses.location;
+  if (typeof location === "string") {
+    return location;
+  }
+  if (location && typeof location === "object" && "value" in location) {
+    const value = (location as { value?: unknown }).value;
+    return typeof value === "string" ? value : undefined;
+  }
+  return undefined;
+};
+
+/**
+ * Dedicated video integrations must keep their integrations:* location type through calendar sync.
+ * Otherwise EventManager treats the Zoom join URL as a plain location and never PATCHes Zoom.
+ */
+export const shouldPreserveBookingLocation = (
+  booking: BookingWithEventType,
+  responses: Record<string, unknown>
+): boolean => {
+  const candidates = [booking.location, getResponseLocationValue(responses)].filter(
+    (value): value is string => typeof value === "string" && value.length > 0
+  );
+
+  return candidates.some((location) => location.includes("integrations:"));
 };
 
 export const buildMetadataFromCalendarEvent = (event: CalendarSubscriptionEventItem) => {

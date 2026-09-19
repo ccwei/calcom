@@ -27,7 +27,7 @@ import type {
   CreateBookingMeta,
   CreateRegularBookingData,
 } from "@calcom/features/bookings/lib/dto/types";
-import EventManager, { placeholderCreatedEvent } from "@calcom/features/bookings/lib/EventManager";
+import EventManager from "@calcom/features/bookings/lib/EventManager";
 import { getAssignmentReasonCategory } from "@calcom/features/bookings/lib/getAssignmentReasonCategory";
 import type { CheckBookingAndDurationLimitsService } from "@calcom/features/bookings/lib/handleNewBooking/checkBookingAndDurationLimits";
 import { handlePayment } from "@calcom/features/bookings/lib/handlePayment";
@@ -2069,10 +2069,10 @@ async function handler(
   // After polling videoBusyTimes, credentials might have been changed due to refreshment, so query them again.
   const credentials = await refreshCredentials(allCredentials);
   const apps = eventTypeAppMetadataOptionalSchema.parse(eventType?.metadata?.apps);
-  const eventManager =
-    !isDryRun && !skipCalendarSyncTaskCreation
-      ? new EventManager({ ...organizerUser, credentials }, apps)
-      : buildDryRunEventManager();
+  const shouldSkipCalendarEvents = !areCalendarEventsEnabled || skipCalendarSyncTaskCreation;
+  const eventManager = !isDryRun
+    ? new EventManager({ ...organizerUser, credentials }, apps)
+    : buildDryRunEventManager();
 
   let videoCallUrl;
 
@@ -2147,17 +2147,18 @@ async function handler(
     // to the default description when we are sending the emails.
     evt.description = eventType.description;
 
-    const updateManager = !skipCalendarSyncTaskCreation
-      ? await eventManager.reschedule(
-          evt,
-          originalRescheduledBooking.uid,
-          undefined,
-          changedOrganizer,
-          previousHostDestinationCalendar,
-          isBookingRequestedReschedule,
-          skipDeleteEventsAndMeetings
-        )
-      : placeholderCreatedEvent;
+    // Always run EventManager.reschedule so video meetings (e.g. Zoom) are updated.
+    // skipCalendarEvent avoids writing back to the external calendar (inbound calendar-sync loop prevention).
+    const updateManager = await eventManager.reschedule(
+      evt,
+      originalRescheduledBooking.uid,
+      undefined,
+      changedOrganizer,
+      previousHostDestinationCalendar,
+      isBookingRequestedReschedule,
+      skipDeleteEventsAndMeetings,
+      { skipCalendarEvent: shouldSkipCalendarEvents }
+    );
 
     results = updateManager.results;
     referencesToCreate = updateManager.referencesToCreate;
@@ -2310,7 +2311,6 @@ async function handler(
     // If it's not a reschedule, doesn't require confirmation and there's no price,
     // Create a booking
   } else if (isConfirmedByDefault) {
-    const shouldSkipCalendarEvents = !areCalendarEventsEnabled || skipCalendarSyncTaskCreation;
     const createManager = await eventManager.create(evt, { skipCalendarEvent: shouldSkipCalendarEvents });
     if (evt.location) {
       booking.location = evt.location;

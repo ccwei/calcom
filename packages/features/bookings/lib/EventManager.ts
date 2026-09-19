@@ -44,6 +44,39 @@ export const isDedicatedIntegration = (location: string): boolean => {
   return location !== MeetLocationType && location.includes("integrations:");
 };
 
+/**
+ * True when the reschedule is actually changing where the meeting happens.
+ * integrations:* vs the same meeting's join URL is NOT a location change — calendars and some
+ * code paths store the join URL as booking.location after a video update.
+ */
+export const isRealLocationChange = (
+  evtLocation: string | null | undefined,
+  bookingLocation: string | null | undefined,
+  bookingReferences: Pick<PartialReference, "type" | "meetingUrl">[]
+): boolean => {
+  if (!evtLocation || !bookingLocation || evtLocation === bookingLocation) {
+    return false;
+  }
+
+  const videoRef = bookingReferences.find((ref) => ref.type.includes("_video"));
+  const meetingUrl = videoRef?.meetingUrl;
+  if (!meetingUrl) {
+    return true;
+  }
+
+  const meetingUrlBase = meetingUrl.split("?")[0];
+  const evtIsJoinUrl = evtLocation === meetingUrl || evtLocation.startsWith(meetingUrlBase);
+  const bookingIsJoinUrl = bookingLocation === meetingUrl || bookingLocation.startsWith(meetingUrlBase);
+  const evtIsDedicated = isDedicatedIntegration(evtLocation);
+  const bookingIsDedicated = isDedicatedIntegration(bookingLocation);
+
+  if ((evtIsDedicated && bookingIsJoinUrl) || (bookingIsDedicated && evtIsJoinUrl)) {
+    return false;
+  }
+
+  return true;
+};
+
 interface HasId {
   id: number;
 }
@@ -415,7 +448,12 @@ export default class EventManager {
     };
   }
 
-  public async updateLocation(event: CalendarEvent, booking: PartialBooking): Promise<CreateUpdateResult> {
+  public async updateLocation(
+    event: CalendarEvent,
+    booking: PartialBooking,
+    options?: { skipCalendarEvent?: boolean }
+  ): Promise<CreateUpdateResult> {
+    const { skipCalendarEvent = false } = options ?? {};
     const evt = processLocation(event);
     const isDedicated = evt.location ? isDedicatedIntegration(evt.location) : null;
 
@@ -444,7 +482,7 @@ export default class EventManager {
 
     // Update the calendar event with the proper video call data
     const calendarReference = booking.references.find((reference) => reference.type.includes("_calendar"));
-    if (calendarReference) {
+    if (calendarReference && !skipCalendarEvent) {
       results.push(...(await this.updateAllCalendarEvents(evt, booking)));
 
       if (evt.location === MSTeamsLocationType) {
@@ -612,6 +650,10 @@ export default class EventManager {
    *
    * @param event
    */
+  /**
+   * @param options.skipCalendarEvent - When true, skips calendar/CRM updates but still updates video meetings.
+   *   Used by inbound calendar subscription sync to avoid write-back loops while keeping Zoom/etc. in sync.
+   */
   public async reschedule(
     event: CalendarEvent,
     rescheduleUid: string,
@@ -619,8 +661,10 @@ export default class EventManager {
     changedOrganizer?: boolean,
     previousHostDestinationCalendar?: DestinationCalendar[] | null,
     isBookingRequestedReschedule?: boolean,
-    skipDeleteEventsAndMeetings?: boolean
+    skipDeleteEventsAndMeetings?: boolean,
+    options?: { skipCalendarEvent?: boolean }
   ): Promise<CreateUpdateResult> {
+    const { skipCalendarEvent = false } = options ?? {};
     const originalEvt = processLocation(event);
     const evt = cloneDeep(originalEvt);
     if (!rescheduleUid) {
@@ -672,7 +716,9 @@ export default class EventManager {
 
     const results: Array<EventResult<Event>> = [];
     const updatedBookingReferences: Array<PartialReference> = [];
-    const isLocationChanged = !!evt.location && !!booking.location && evt.location !== booking.location;
+    // A prior reschedule may have persisted the video join URL as booking.location while the
+    // event still uses integrations:*. That is not a real location change — still PATCH the meeting.
+    const isLocationChanged = isRealLocationChange(evt.location, booking.location, booking.references);
 
     let isDailyVideoRoomExpired = false;
 
@@ -713,13 +759,13 @@ export default class EventManager {
         }
 
         log.debug("RescheduleOrganizerChanged: Creating Event and Meeting for for new booking");
-        const createdEvent = await this.create(originalEvt);
+        const createdEvent = await this.create(originalEvt, { skipCalendarEvent });
         results.push(...createdEvent.results);
         updatedBookingReferences.push(...createdEvent.referencesToCreate);
       } else {
         // If the reschedule doesn't require confirmation, we can "update" the events and meetings to new time.
         if (isLocationChanged || isBookingRequestedReschedule || isDailyVideoRoomExpired) {
-          const updatedLocation = await this.updateLocation(evt, booking);
+          const updatedLocation = await this.updateLocation(evt, booking, { skipCalendarEvent });
           results.push(...updatedLocation.results);
           updatedBookingReferences.push(...updatedLocation.referencesToCreate);
         } else {
@@ -755,13 +801,15 @@ export default class EventManager {
             reference.type.includes("_calendar")
           );
           // There was a case that booking didn't had any reference and we don't want to throw error on function
-          if (bookingCalendarReference) {
+          if (bookingCalendarReference && !skipCalendarEvent) {
             // Update all calendar events.
             results.push(...(await this.updateAllCalendarEvents(evt, booking, newBookingId)));
           }
         }
 
-        results.push(...(await this.updateAllCRMEvents(evt, booking)));
+        if (!skipCalendarEvent) {
+          results.push(...(await this.updateAllCRMEvents(evt, booking)));
+        }
       }
     }
     const bookingPayment = booking?.payment;

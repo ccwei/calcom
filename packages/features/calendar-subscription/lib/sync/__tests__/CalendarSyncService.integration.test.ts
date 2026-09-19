@@ -1,14 +1,12 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
-
 import type { CalendarSubscriptionEventItem } from "@calcom/features/calendar-subscription/lib/CalendarSubscriptionPort.interface";
 import type { BookingRepository } from "@calcom/lib/server/repository/booking";
 import type { SelectedCalendar } from "@calcom/prisma/client";
-
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   type BookingWithEventType,
-  CalendarSyncService,
   buildMetadataFromCalendarEvent,
   buildRescheduleBookingData,
+  CalendarSyncService,
   extractBookingResponses,
   hasStartTimeChanged,
   mergeBookingResponsesWithEventData,
@@ -69,7 +67,9 @@ const makeBooking = (overrides: Partial<BookingWithEventType> = {}): BookingWith
     ...overrides,
   }) as unknown as BookingWithEventType;
 
-const makeEvent = (overrides: Partial<CalendarSubscriptionEventItem> = {}): CalendarSubscriptionEventItem => ({
+const makeEvent = (
+  overrides: Partial<CalendarSubscriptionEventItem> = {}
+): CalendarSubscriptionEventItem => ({
   id: "gcal-event-1",
   iCalUID: "booking-uid-123@cal.com",
   start: new Date("2024-01-15T14:00:00Z"),
@@ -327,6 +327,49 @@ describe("mergeBookingResponsesWithEventData", () => {
       value: "New Location",
       label: "New Location",
       optionValue: "New Location",
+    });
+  });
+
+  test("does not override integrations:* location with calendar join URL", () => {
+    const booking = makeBooking({
+      location: "integrations:zoom",
+      responses: {
+        name: "John",
+        email: "john@test.com",
+        location: { value: "integrations:zoom", optionValue: "", label: "Zoom Video" },
+      },
+    });
+    const event = makeEvent({
+      location: "https://us06web.zoom.us/j/84556732178?pwd=abc",
+    });
+
+    const result = mergeBookingResponsesWithEventData(booking, event);
+
+    expect(result.location).toEqual({
+      value: "integrations:zoom",
+      optionValue: "",
+      label: "Zoom Video",
+    });
+  });
+
+  test("preserves integrations:* location from booking.location when responses lack location", () => {
+    const booking = makeBooking({
+      location: "integrations:zoom",
+      responses: {
+        name: "John",
+        email: "john@test.com",
+      },
+    });
+    const event = makeEvent({
+      location: "https://us06web.zoom.us/j/84556732178",
+    });
+
+    const result = mergeBookingResponsesWithEventData(booking, event);
+
+    expect(result.location).toEqual({
+      value: "integrations:zoom",
+      label: "integrations:zoom",
+      optionValue: "",
     });
   });
 
@@ -724,6 +767,27 @@ describe("CalendarSyncService - booking data updated from external event", () =>
       value: "https://zoom.us/j/123",
       label: "https://zoom.us/j/123",
       optionValue: "https://zoom.us/j/123",
+    });
+  });
+
+  test("does not override Zoom integrations location with Google Calendar join URL", async () => {
+    const booking = makeBooking({
+      location: "integrations:zoom",
+      responses: {
+        name: "John Doe",
+        location: { value: "integrations:zoom", label: "Zoom Video", optionValue: "" },
+      },
+    });
+    const event = makeEvent({ location: "https://us06web.zoom.us/j/84556732178?pwd=abc" });
+
+    mockBookingRepository.findBookingByUidWithEventType = vi.fn().mockResolvedValue(booking);
+    await service.rescheduleBooking(event, mockSelectedCalendar.userId);
+
+    const call = mockCreateBooking.mock.calls[0][0];
+    expect(call.bookingData.responses.location).toEqual({
+      value: "integrations:zoom",
+      label: "Zoom Video",
+      optionValue: "",
     });
   });
 
