@@ -9,7 +9,6 @@ import {
   LogOutIcon,
   MoonIcon,
   SettingsIcon,
-  UserIcon,
 } from "@coss/ui/icons";
 import { useGetUserAttributes } from "@calcom/web/components/settings/platform/hooks/useGetUserAttributes";
 import FreshChatProvider from "@calcom/web/modules/ee/support/lib/freshchat/FreshChatProvider";
@@ -144,10 +143,6 @@ export function UserDropdown({ small }: UserDropdownProps) {
         <MenuPopup align="start">
           {!isPlatformPages && (
             <>
-              <MenuItem render={<Link href="/settings/my-account/profile" />}>
-                <UserIcon />
-                {t("my_profile")}
-              </MenuItem>
               <MenuItem render={<Link href="/settings/my-account/general" />}>
                 <SettingsIcon />
                 {t("my_settings")}

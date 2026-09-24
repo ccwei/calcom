@@ -63,7 +63,7 @@ export function useBottomNavItems({ isAdmin, user }: BottomNavItemsProps): Navig
       : null,
     {
       name: "settings",
-      href: user?.org ? `/settings/organizations/profile` : "/settings/my-account/profile",
+      href: user?.org ? `/settings/organizations/profile` : "/settings/my-account/general",
       icon: "settings",
     },
   ].filter(Boolean) as NavigationItemType[];

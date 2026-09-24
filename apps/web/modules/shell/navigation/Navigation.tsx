@@ -42,6 +42,14 @@ const getNavigationItems = (
     href: "/availability",
     icon: "clock",
   },
+  {
+    name: "out_of_office",
+    href: "/settings/my-account/out-of-office",
+    icon: "moon",
+    moreOnMobile: true,
+    isCurrent: ({ pathname }) =>
+      pathname?.startsWith("/settings/my-account/out-of-office") ?? false,
+  },
   ...(orgBranding
     ? [
         {

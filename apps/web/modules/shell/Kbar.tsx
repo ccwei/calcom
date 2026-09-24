@@ -123,22 +123,6 @@ const KBAR_ACTION_CONFIGS: ActionConfig[] = [
     href: "/availability",
   },
   {
-    id: "profile",
-    name: "profile",
-    section: "profile",
-    shortcut: ["p", "s"],
-    keywords: "setting profile",
-    href: "/settings/my-account/profile",
-  },
-  {
-    id: "avatar",
-    name: "change_avatar",
-    section: "profile",
-    shortcut: ["c", "a"],
-    keywords: "remove change modify avatar",
-    href: "/settings/my-account/profile",
-  },
-  {
     id: "timezone",
     name: "timezone",
     section: "profile",

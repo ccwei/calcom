@@ -39,11 +39,6 @@ const getTabs = (orgBranding: OrganizationBranding | null) => {
       icon: "user",
       children: [
         {
-          name: "profile",
-          href: "/settings/my-account/profile",
-          trackingMetadata: { section: "my_account", page: "profile" },
-        },
-        {
           name: "general",
           href: "/settings/my-account/general",
           trackingMetadata: { section: "my_account", page: "general" },

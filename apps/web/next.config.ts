@@ -544,7 +544,7 @@ const nextConfig = (phase: string): NextConfig => {
         },
         {
           source: "/settings",
-          destination: "/settings/my-account/profile",
+          destination: "/settings/my-account/general",
           permanent: true,
         },
         {
@@ -559,7 +559,7 @@ const nextConfig = (phase: string): NextConfig => {
         },
         {
           source: "/settings/profile",
-          destination: "/settings/my-account/profile",
+          destination: "/settings/my-account/general",
           permanent: false,
         },
         {
