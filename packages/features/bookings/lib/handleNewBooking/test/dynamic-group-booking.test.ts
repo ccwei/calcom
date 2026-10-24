@@ -52,6 +52,7 @@ describe("handleNewBooking", () => {
         });
 
         const groupUser1 = getOrganizer({
+          allowDynamicBooking: true,
           name: "group-user-1",
           username: "group-user-1",
           email: "group-user-1@example.com",
@@ -62,6 +63,7 @@ describe("handleNewBooking", () => {
         });
 
         const groupUser2 = getOrganizer({
+          allowDynamicBooking: true,
           name: "group-user-2",
           username: "group-user-2",
           email: "group-user-2@example.com",
@@ -71,7 +73,7 @@ describe("handleNewBooking", () => {
           selectedCalendars: [],
         });
 
-        const { dateString: plus1DateString } = getDate({ dateIncrement: 1 });
+        const { dateString: plus3DateString } = getDate({ dateIncrement: 3 });
 
         await createBookingScenario(
           getScenarioData({
@@ -98,16 +100,16 @@ describe("handleNewBooking", () => {
           },
           busySlots: [
             {
-              start: `${plus1DateString}T05:00:00.000Z`,
-              end: `${plus1DateString}T05:15:00.000Z`,
+              start: `${plus3DateString}T05:00:00.000Z`,
+              end: `${plus3DateString}T05:15:00.000Z`,
             },
           ],
         });
 
         const mockBookingData = getMockRequestDataForDynamicGroupBooking({
           data: {
-            start: `${getDate({ dateIncrement: 1 }).dateString}T05:00:00.000Z`,
-            end: `${getDate({ dateIncrement: 1 }).dateString}T05:30:00.000Z`,
+            start: `${getDate({ dateIncrement: 3 }).dateString}T05:00:00.000Z`,
+            end: `${getDate({ dateIncrement: 3 }).dateString}T05:30:00.000Z`,
             eventTypeId: 0,
             eventTypeSlug: "group-user-1+group-user-2",
             user: "group-user-1+group-user-2",
@@ -146,6 +148,7 @@ describe("handleNewBooking", () => {
 
         // Create two users where alphabetically the second would come first
         const userZebra = getOrganizer({
+          allowDynamicBooking: true,
           name: "Zebra User",
           username: "zebra",
           email: "zebra@example.com",
@@ -156,6 +159,7 @@ describe("handleNewBooking", () => {
         });
 
         const userAlpha = getOrganizer({
+          allowDynamicBooking: true,
           name: "Alpha User",
           username: "alpha",
           email: "alpha@example.com",
@@ -175,8 +179,8 @@ describe("handleNewBooking", () => {
         // Book with zebra first in the URL - zebra should be the organizer
         const mockBookingDataZebraFirst = getMockRequestDataForDynamicGroupBooking({
           data: {
-            start: `${getDate({ dateIncrement: 1 }).dateString}T05:00:00.000Z`,
-            end: `${getDate({ dateIncrement: 1 }).dateString}T05:30:00.000Z`,
+            start: `${getDate({ dateIncrement: 3 }).dateString}T05:00:00.000Z`,
+            end: `${getDate({ dateIncrement: 3 }).dateString}T05:30:00.000Z`,
             eventTypeId: 0,
             eventTypeSlug: "zebra+alpha",
             user: "zebra+alpha",
@@ -206,8 +210,8 @@ describe("handleNewBooking", () => {
         // Book with alpha first in the URL - alpha should be the organizer
         const mockBookingDataAlphaFirst = getMockRequestDataForDynamicGroupBooking({
           data: {
-            start: `${getDate({ dateIncrement: 1 }).dateString}T06:00:00.000Z`,
-            end: `${getDate({ dateIncrement: 1 }).dateString}T06:30:00.000Z`,
+            start: `${getDate({ dateIncrement: 3 }).dateString}T06:00:00.000Z`,
+            end: `${getDate({ dateIncrement: 3 }).dateString}T06:30:00.000Z`,
             eventTypeId: 0,
             eventTypeSlug: "alpha+zebra",
             user: "alpha+zebra",
@@ -250,6 +254,7 @@ describe("handleNewBooking", () => {
           });
 
           const groupUser1 = getOrganizer({
+            allowDynamicBooking: true,
             name: "group-user-1",
             username: "group-user-1",
             email: "group-user-1@example.com",
@@ -260,6 +265,7 @@ describe("handleNewBooking", () => {
           });
 
           const groupUser2 = getOrganizer({
+            allowDynamicBooking: true,
             name: "group-user-2",
             username: "group-user-2",
             email: "group-user-2@example.com",
@@ -270,7 +276,7 @@ describe("handleNewBooking", () => {
             selectedCalendars: [],
           });
 
-          const { dateString: plus1DateString } = getDate({ dateIncrement: 1 });
+          const { dateString: plus3DateString } = getDate({ dateIncrement: 3 });
 
           await createBookingScenario(
             getScenarioData({
@@ -287,16 +293,16 @@ describe("handleNewBooking", () => {
             },
             busySlots: [
               {
-                start: `${plus1DateString}T05:00:00.000Z`,
-                end: `${plus1DateString}T05:15:00.000Z`,
+                start: `${plus3DateString}T05:00:00.000Z`,
+                end: `${plus3DateString}T05:15:00.000Z`,
               },
             ],
           });
 
           const mockBookingData = getMockRequestDataForDynamicGroupBooking({
             data: {
-              start: `${getDate({ dateIncrement: 1 }).dateString}T05:00:00.000Z`,
-              end: `${getDate({ dateIncrement: 1 }).dateString}T05:30:00.000Z`,
+              start: `${getDate({ dateIncrement: 3 }).dateString}T05:00:00.000Z`,
+              end: `${getDate({ dateIncrement: 3 }).dateString}T05:30:00.000Z`,
               eventTypeId: 0,
               eventTypeSlug: "group-user-1+group-user-2",
               user: "group-user-1+group-user-2",
@@ -330,6 +336,7 @@ describe("handleNewBooking", () => {
           });
 
           const groupUser1 = getOrganizer({
+            allowDynamicBooking: true,
             name: "group-user-1",
             username: "group-user-1",
             email: "group-user-1@example.com",
@@ -340,6 +347,7 @@ describe("handleNewBooking", () => {
           });
 
           const groupUser2 = getOrganizer({
+            allowDynamicBooking: true,
             name: "group-user-2",
             username: "group-user-2",
             email: "group-user-2@example.com",
@@ -349,7 +357,7 @@ describe("handleNewBooking", () => {
             selectedCalendars: [TestData.selectedCalendars.google],
           });
 
-          const { dateString: plus1DateString } = getDate({ dateIncrement: 1 });
+          const { dateString: plus3DateString } = getDate({ dateIncrement: 3 });
 
           await createBookingScenario(
             getScenarioData({
@@ -376,16 +384,16 @@ describe("handleNewBooking", () => {
             },
             busySlots: [
               {
-                start: `${plus1DateString}T05:00:00.000Z`,
-                end: `${plus1DateString}T05:15:00.000Z`,
+                start: `${plus3DateString}T05:00:00.000Z`,
+                end: `${plus3DateString}T05:15:00.000Z`,
               },
             ],
           });
 
           const mockBookingData = getMockRequestDataForDynamicGroupBooking({
             data: {
-              start: `${getDate({ dateIncrement: 1 }).dateString}T05:00:00.000Z`,
-              end: `${getDate({ dateIncrement: 1 }).dateString}T05:30:00.000Z`,
+              start: `${getDate({ dateIncrement: 3 }).dateString}T05:00:00.000Z`,
+              end: `${getDate({ dateIncrement: 3 }).dateString}T05:30:00.000Z`,
               eventTypeId: 0,
               eventTypeSlug: "group-user-1+group-user-2",
               user: "group-user-1+group-user-2",

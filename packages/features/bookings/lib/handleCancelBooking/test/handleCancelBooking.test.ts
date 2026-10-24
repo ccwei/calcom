@@ -12,6 +12,7 @@ import {
 } from "@calcom/testing/lib/bookingScenario/bookingScenario";
 import {
   expectBookingCancelledWebhookToHaveBeenFired,
+  expectBookingToBeInDatabase,
   expectWorkflowToBeTriggered,
 } from "@calcom/testing/lib/bookingScenario/expects";
 import { setupAndTeardown } from "@calcom/testing/lib/bookingScenario/setupAndTeardown";
@@ -583,7 +584,9 @@ describe("Cancel Booking", () => {
     });
   });
 
-  test("Should block cancelling past bookings", async () => {
+  // Hosts are allowed to cancel bookings that have already ended (the past-booking guard
+  // in handleCancelBooking is intentionally disabled).
+  test("Should allow cancelling past bookings", async () => {
     const handleCancelBooking = (await import("@calcom/features/bookings/lib/handleCancelBooking")).default;
 
     const booker = getBooker({
@@ -639,19 +642,22 @@ describe("Cancel Booking", () => {
       })
     );
 
-    // This should throw an error with current implementation
-    await expect(
-      handleCancelBooking({
-        bookingData: {
-          id: idOfBookingToBeCancelled,
-          uid: uidOfBookingToBeCancelled,
-          cancelledBy: organizer.email,
-          cancellationReason: "Testing past booking cancellation",
-        },
-        impersonatedByUserUuid: null,
-        actionSource: "WEBAPP",
-      })
-    ).rejects.toThrow("Cannot cancel a booking that has already ended");
+    const result = await handleCancelBooking({
+      bookingData: {
+        id: idOfBookingToBeCancelled,
+        uid: uidOfBookingToBeCancelled,
+        cancelledBy: organizer.email,
+        cancellationReason: "Testing past booking cancellation",
+      },
+      impersonatedByUserUuid: null,
+      actionSource: "WEBAPP",
+    });
+
+    expect(result).toEqual(expect.objectContaining({ success: true, bookingId: idOfBookingToBeCancelled }));
+    await expectBookingToBeInDatabase({
+      uid: uidOfBookingToBeCancelled,
+      status: BookingStatus.CANCELLED,
+    });
   });
 
   test("Should block canceling bookings without a cancellation reason when cancelledBy is set to the host", async () => {

@@ -907,6 +907,7 @@ describe("handleNewBooking", () => {
         });
 
         const groupUser1 = getOrganizer({
+          allowDynamicBooking: true,
           name: "group-user-1",
           username: "group-user-1",
           email: "group-user-1@example.com",
@@ -919,6 +920,7 @@ describe("handleNewBooking", () => {
         });
 
         const groupUser2 = getOrganizer({
+          allowDynamicBooking: true,
           name: "group-user-2",
           username: "group-user-2",
           email: "group-user-2@example.com",
@@ -972,12 +974,12 @@ describe("handleNewBooking", () => {
           },
         });
 
-        const { dateString: plus1DateString } = getDate({ dateIncrement: 1 });
+        const { dateString: plus3DateString } = getDate({ dateIncrement: 3 });
 
         const mockBookingData = getMockRequestDataForDynamicGroupBooking({
           data: {
-            start: `${plus1DateString}T05:00:00.000Z`,
-            end: `${plus1DateString}T05:30:00.000Z`,
+            start: `${plus3DateString}T05:00:00.000Z`,
+            end: `${plus3DateString}T05:30:00.000Z`,
             eventTypeId: 0,
             eventTypeSlug: "group-user-1+group-user-2",
             user: "group-user-1+group-user-2",
@@ -1060,6 +1062,7 @@ describe("handleNewBooking", () => {
         });
 
         const groupUser1 = getOrganizer({
+          allowDynamicBooking: true,
           name: "group-user-1",
           username: "group-user-1",
           email: "group-user-1@example.com",
@@ -1077,6 +1080,7 @@ describe("handleNewBooking", () => {
         });
 
         const groupUser2 = getOrganizer({
+          allowDynamicBooking: true,
           name: "group-user-2",
           username: "group-user-2",
           email: "group-user-2@example.com",
@@ -1125,12 +1129,12 @@ describe("handleNewBooking", () => {
           },
         });
 
-        const { dateString: plus1DateString } = getDate({ dateIncrement: 1 });
+        const { dateString: plus3DateString } = getDate({ dateIncrement: 3 });
 
         const mockBookingData = getMockRequestDataForDynamicGroupBooking({
           data: {
-            start: `${plus1DateString}T05:00:00.000Z`,
-            end: `${plus1DateString}T05:30:00.000Z`,
+            start: `${plus3DateString}T05:00:00.000Z`,
+            end: `${plus3DateString}T05:30:00.000Z`,
             eventTypeId: 0,
             eventTypeSlug: "group-user-1+group-user-2",
             user: "group-user-1+group-user-2",

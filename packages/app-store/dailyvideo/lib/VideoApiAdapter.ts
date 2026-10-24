@@ -19,6 +19,7 @@ import {
   getMeetingInformationResponseSchema,
   TGetMeetingInformationResponsesSchema,
 } from "../zod";
+import { metadata } from "../_metadata";
 import type { TSubmitBatchProcessorJobRes, TGetTranscriptAccessLink, batchProcessorBody } from "../zod";
 import { fetcher } from "./dailyApiFetcher";
 import {
@@ -89,6 +90,9 @@ export const FAKE_DAILY_CREDENTIAL: CredentialForCalendarService & { invalid: bo
   userId: 0,
   user: { email: "" },
   appId: "daily-video",
+  // Cal Video is no longer a global app, so bookings reach it through this fallback instead of an
+  // installed credential; without appName, emails list the raw slug ("daily-video") as the app.
+  appName: metadata.name,
   invalid: false,
   teamId: null,
   encryptedKey: null,

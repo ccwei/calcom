@@ -30,6 +30,7 @@ import type {
   SMSLockState,
   TimeUnit,
 } from "@calcom/prisma/enums";
+import { PeriodType } from "@calcom/prisma/enums";
 import type {
   EventTypeMetaDataSchema,
   eventTypeBookingFields,
@@ -246,6 +247,7 @@ type InputUser = Omit<typeof TestData.users.example, "defaultScheduleId"> & {
   };
   requiresBookerEmailVerification?: boolean;
   secondaryEmails?: { email: string; emailVerified: Date | null }[];
+  allowDynamicBooking?: boolean;
 };
 
 export type InputEventType = {
@@ -523,6 +525,9 @@ export async function addEventTypes(eventTypes: InputEventType[], usersStore: In
     includeManagedEventsInLimits: false,
     schedulingType: null,
     length: 15,
+    // The schema defaults to a ROLLING booking window; scenarios book weeks or years ahead,
+    // so pin UNLIMITED here and let tests that exercise future limits set periodType themselves.
+    periodType: PeriodType.UNLIMITED,
     //TODO: What is the purpose of periodStartDate and periodEndDate? Test these?
     periodStartDate: new Date("2022-01-21T09:03:48.000Z"),
     periodEndDate: new Date("2022-01-21T09:03:48.000Z"),
@@ -1569,6 +1574,7 @@ export function getOrganizer({
   emailVerified,
   requiresBookerEmailVerification,
   secondaryEmails,
+  allowDynamicBooking,
 }: {
   name: string;
   email: string;
@@ -1589,6 +1595,7 @@ export function getOrganizer({
   emailVerified?: Date | null;
   requiresBookerEmailVerification?: boolean;
   secondaryEmails?: { email: string; emailVerified: Date | null }[];
+  allowDynamicBooking?: boolean;
 }) {
   username = username ?? TestData.users.example.username;
   return {
@@ -1613,6 +1620,7 @@ export function getOrganizer({
     emailVerified,
     requiresBookerEmailVerification,
     secondaryEmails,
+    allowDynamicBooking,
   };
 }
 

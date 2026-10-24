@@ -1,24 +1,12 @@
-import { getBookingUrl, getCancelLink, getRescheduleLink } from "@calcom/lib/CalEventParser";
+import { getBookingUrl, getRescheduleLink } from "@calcom/lib/CalEventParser";
 import type { CalendarEvent, Person } from "@calcom/types/Calendar";
 
+// Cancelling is intentionally not offered from emails, so only reschedule (and the
+// platform booking link) are rendered here.
 export function ManageLink(props: { calEvent: CalendarEvent; attendee: Person }) {
   // Only the original attendee can make changes to the event
   // Guests cannot
   const t = props.attendee.language.translate;
-  const cancelLink = getCancelLink(
-    {
-      platformClientId: props.calEvent.platformClientId,
-      platformCancelUrl: props.calEvent.platformCancelUrl,
-      type: props.calEvent.type,
-      organizer: props.calEvent.organizer,
-      recurringEvent: props.calEvent.recurringEvent,
-      bookerUrl: props.calEvent.bookerUrl,
-      uid: props.calEvent.uid,
-      attendeeSeatId: props.calEvent.attendeeSeatId,
-      team: props.calEvent.team,
-    },
-    props.attendee
-  );
   const rescheduleLink = getRescheduleLink({ calEvent: props.calEvent, attendee: props.attendee });
   const bookingLink = getBookingUrl({
     platformClientId: props.calEvent.platformClientId,
@@ -32,7 +20,6 @@ export function ManageLink(props: { calEvent: CalendarEvent; attendee: Person })
 
   const isOriginalAttendee = props.attendee.email === props.calEvent.attendees[0]?.email;
   const isOrganizer = props.calEvent.organizer.email === props.attendee.email;
-  const hasCancelLink = Boolean(cancelLink) && !props.calEvent.disableCancelling;
   const hasRescheduleLink = Boolean(rescheduleLink) && !props.calEvent.disableRescheduling;
   const hasBookingLink = Boolean(bookingLink);
   const isRecurringEvent = props.calEvent.recurringEvent;
@@ -41,7 +28,7 @@ export function ManageLink(props: { calEvent: CalendarEvent; attendee: Person })
 
   if (
     (isOriginalAttendee || isOrganizer || isTeamMember) &&
-    (hasCancelLink || (!isRecurringEvent && hasRescheduleLink) || hasBookingLink)
+    (shouldDisplayRescheduleLink || hasBookingLink)
   ) {
     return (
       <div
@@ -60,7 +47,7 @@ export function ManageLink(props: { calEvent: CalendarEvent; attendee: Person })
             textAlign: "center",
             width: "100%",
           }}>
-          {(shouldDisplayRescheduleLink || hasCancelLink) && <>{t("need_to_make_a_change")}</>}
+          {shouldDisplayRescheduleLink && <>{t("need_to_make_a_change")}</>}
           {shouldDisplayRescheduleLink && (
             <span>
               <a
@@ -78,7 +65,7 @@ export function ManageLink(props: { calEvent: CalendarEvent; attendee: Person })
 
           {props.calEvent.platformClientId && hasBookingLink && (
             <span>
-              {(hasCancelLink || shouldDisplayRescheduleLink) && (
+              {shouldDisplayRescheduleLink && (
                 <span
                   style={{
                     marginLeft: "5px",

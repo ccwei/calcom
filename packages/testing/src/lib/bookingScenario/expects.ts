@@ -483,17 +483,9 @@ export function expectSuccessfulBookingCreationEmails({
       titleTag: "confirmed_event_type_subject",
       heading: recurrence ? "new_event_scheduled_recurring" : "new_event_scheduled",
       subHeading: "",
+      // Emails don't offer cancelling, and recurring events can't be rescheduled from email
       links: recurrence
-        ? [
-            {
-              href: `${bookingUrlOrigin}/booking/${
-                booking.uid
-              }?cancel=true&allRemainingBookings=true&cancelledBy=${encodeURIComponent(
-                destinationEmail ?? organizer.email
-              )}`,
-              text: "cancel",
-            },
-          ]
+        ? []
         : [
             {
               href: `${bookingUrlOrigin}/reschedule/${booking.uid}?rescheduledBy=${encodeURIComponent(
@@ -546,15 +538,9 @@ export function expectSuccessfulBookingCreationEmails({
         recurrence,
         method: "REQUEST",
       },
+      // Emails don't offer cancelling, and recurring events can't be rescheduled from email
       links: recurrence
-        ? [
-            {
-              href: `${bookingUrlOrigin}/booking/${
-                booking.uid
-              }?cancel=true&allRemainingBookings=true&cancelledBy=${encodeURIComponent(booker.email)}`,
-              text: "cancel",
-            },
-          ]
+        ? []
         : [
             {
               href: `${bookingUrlOrigin}/reschedule/${booking.uid}?rescheduledBy=${encodeURIComponent(
@@ -595,14 +581,6 @@ export function expectSuccessfulBookingCreationEmails({
                 otherTeamMember.email
               )}`,
               text: "reschedule",
-            },
-            {
-              href: `${bookingUrlOrigin}/booking/${
-                booking.uid
-              }?cancel=true&allRemainingBookings=false&cancelledBy=${encodeURIComponent(
-                otherTeamMember.email
-              )}`,
-              text: "cancel",
             },
           ],
         },
