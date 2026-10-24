@@ -40,7 +40,7 @@ const enum ReroutingStatusEnum {
 
 type ResponseWithForm = RouterOutputs["viewer"]["appRoutingForms"]["getResponseWithFormFields"];
 
-type BookingToReroute = Pick<PrismaBooking, "metadata" | "responses" | "id" | "uid" | "title" | "status"> & {
+type BookingToReroute = Pick<PrismaBooking, "responses" | "id" | "uid" | "title" | "status"> & {
   routedFromRoutingFormReponse: {
     id: number;
   };
@@ -415,7 +415,13 @@ const NewRoutingManager = ({
         responses: booking.responses,
         timeZone: booker.timeZone,
         language: booker.locale || "en",
-        metadata: booking.metadata || {},
+        // The booking create endpoint only accepts string metadata values (z.record(z.string())),
+        // so drop anything else carried on the existing booking instead of failing validation.
+        metadata: Object.fromEntries(
+          Object.entries(booking.metadata ?? {}).filter(
+            (entry): entry is [string, string] => typeof entry[1] === "string"
+          )
+        ),
         ...getBookingSeatFields(),
         ...getHashedLinkFields(),
       };

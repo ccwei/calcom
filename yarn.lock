@@ -34575,7 +34575,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-select@npm:5.8.0":
+"react-select@npm:5.8.0, react-select@npm:^5.7.0":
   version: 5.8.0
   resolution: "react-select@npm:5.8.0"
   dependencies:
@@ -34592,26 +34592,6 @@ __metadata:
     react: ^16.8.0 || ^17.0.0 || ^18.0.0
     react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
   checksum: 10/04d3639ea1872a9e4d9080ece1947432fc595403c0a740f671a1b7f7dd2639288cb133ec7a2b1ac20fad69fd303d696c2f924763405e0e1d93b847e54df9e966
-  languageName: node
-  linkType: hard
-
-"react-select@npm:^5.7.0":
-  version: 5.10.2
-  resolution: "react-select@npm:5.10.2"
-  dependencies:
-    "@babel/runtime": "npm:^7.12.0"
-    "@emotion/cache": "npm:^11.4.0"
-    "@emotion/react": "npm:^11.8.1"
-    "@floating-ui/dom": "npm:^1.0.1"
-    "@types/react-transition-group": "npm:^4.4.0"
-    memoize-one: "npm:^6.0.0"
-    prop-types: "npm:^15.6.0"
-    react-transition-group: "npm:^4.3.0"
-    use-isomorphic-layout-effect: "npm:^1.2.0"
-  peerDependencies:
-    react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
-    react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
-  checksum: 10/9c7f488a9774f566f60e882343dc26276eed866669304805638378b3bafb87fb1f6189d1aacde5eba4f637a7ff022f8e24caec541d12c254bafc2eb9658e14d2
   languageName: node
   linkType: hard
 
@@ -39659,7 +39639,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"use-isomorphic-layout-effect@npm:^1.1.2, use-isomorphic-layout-effect@npm:^1.2.0":
+"use-isomorphic-layout-effect@npm:^1.1.2":
   version: 1.2.1
   resolution: "use-isomorphic-layout-effect@npm:1.2.1"
   peerDependencies:

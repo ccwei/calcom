@@ -224,9 +224,6 @@ const nextConfig = (phase: string): NextConfig => {
 
   return {
     output: process.env.BUILD_STANDALONE === "true" ? "standalone" : undefined,
-    eslint: {
-      ignoreDuringBuilds: true,
-    },
     typescript: {
       ignoreBuildErrors: true,
     },

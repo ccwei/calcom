@@ -14,7 +14,7 @@
     "dx": "yarn dev",
     "test-codegen": "yarn playwright codegen http://localhost:3000",
     "type-check": "tsc --pretty --noEmit",
-    "type-check:ci": "tsc-absolute --pretty --noEmit",
+    "type-check:ci": "NODE_OPTIONS=--max-old-space-size=8192 tsc-absolute --pretty --noEmit",
     "sentry:release": "NODE_OPTIONS='--max-old-space-size=6144' node scripts/create-sentry-release.js",
     "copy-static": "turbo run copy-app-store-static",
     "copy-app-store-static": "node scripts/copy-app-store-static.js",

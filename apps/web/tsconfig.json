@@ -19,8 +19,7 @@
       }
     ],
     "strictNullChecks": true,
-    "experimentalDecorators": true,
-    "noImplicitAny": false
+    "experimentalDecorators": true
   },
   "include": [
     /* Find a way to not require this - App files don't belong here. */

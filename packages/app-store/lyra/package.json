@@ -6,10 +6,10 @@
   "main": "./index.ts",
   "description": "The meeting platform built for pros.",
   "dependencies": {
-    "@calcom/lib": "*",
-    "@calcom/prisma": "*"
+    "@calcom/lib": "workspace:*",
+    "@calcom/prisma": "workspace:*"
   },
   "devDependencies": {
-    "@calcom/types": "*"
+    "@calcom/types": "workspace:*"
   }
 }

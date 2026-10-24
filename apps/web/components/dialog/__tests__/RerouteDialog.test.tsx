@@ -523,6 +523,39 @@ describe("RerouteDialog", () => {
           },
         });
       });
+
+      test("Rescheduling with same timeslot only forwards string metadata values", async () => {
+        const bookingWithMixedMetadata = {
+          ...mockBooking,
+          metadata: {
+            videoCallUrl: "https://example.com/video",
+            utm_source: "newsletter",
+            nested: { key: "value" },
+            count: 3,
+          },
+        };
+        render(
+          <SessionProvider session={mockSession}>
+            <TooltipProvider>
+              <RerouteDialog
+                isOpenDialog={true}
+                setIsOpenDialog={mockSetIsOpenDialog}
+                booking={bookingWithMixedMetadata}
+              />
+            </TooltipProvider>
+          </SessionProvider>
+        );
+        clickVerifyNewRouteButton();
+        clickRescheduleWithSameTimeslotOfChosenEventButton();
+        expect(mockReactQueryMutateFn).toHaveBeenCalledWith(
+          expect.objectContaining({
+            metadata: {
+              videoCallUrl: "https://example.com/video",
+              utm_source: "newsletter",
+            },
+          })
+        );
+      });
     });
   });
 });

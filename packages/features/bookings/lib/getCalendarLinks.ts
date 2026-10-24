@@ -146,7 +146,8 @@ export const getCalendarLinks = ({
     location: string | null;
     title: string;
     responses: Prisma.JsonObject;
-    metadata: Prisma.JsonObject | null;
+    // Re-validated with bookingMetadataSchema below, so already-parsed metadata is accepted too
+    metadata: Prisma.JsonObject | z.infer<typeof bookingMetadataSchema> | null;
   };
   eventType: {
     recurringEvent: RecurringEventOrPrismaJsonObject;
