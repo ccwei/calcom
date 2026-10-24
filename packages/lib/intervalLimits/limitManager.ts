@@ -1,6 +1,7 @@
 import type { Dayjs } from "@calcom/dayjs";
 import type { EventBusyDetails } from "@calcom/types/Calendar";
 import type { IntervalLimitUnit } from "./intervalLimitSchema";
+import { zonedPeriodEnd, zonedPeriodStart } from "./utils/zonedPeriod";
 
 type BusyMapKey = `${IntervalLimitUnit}-${ReturnType<Dayjs["toISOString"]>}`;
 
@@ -35,8 +36,7 @@ export default class LimitManager {
    * Creates a busy map key
    */
   private static createKey(start: Dayjs, unit: IntervalLimitUnit, timeZone?: string): BusyMapKey {
-    const tzStart = timeZone ? start.tz(timeZone) : start;
-    return `${unit}-${tzStart.startOf(unit).toISOString()}`;
+    return `${unit}-${zonedPeriodStart(start, unit, timeZone).toISOString()}`;
   }
 
   /**
@@ -82,11 +82,10 @@ export default class LimitManager {
     title: string;
     source: string;
   }) {
-    const tzStart = params.timeZone ? params.start.tz(params.timeZone) : params.start;
-    const tzStartOfUnit = tzStart.startOf(params.unit);
+    const tzStartOfUnit = zonedPeriodStart(params.start, params.unit, params.timeZone);
     this.busyMap.set(`${params.unit}-${tzStartOfUnit.toISOString()}`, {
       start: tzStartOfUnit.toISOString(),
-      end: tzStartOfUnit.endOf(params.unit).toISOString(),
+      end: zonedPeriodEnd(params.start, params.unit, params.timeZone).toISOString(),
       title: params.title,
       source: params.source,
     });

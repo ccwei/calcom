@@ -1,8 +1,8 @@
 import type { Dayjs } from "@calcom/dayjs";
 import dayjs from "@calcom/dayjs";
 import { withReporting } from "@calcom/lib/sentryWrapper";
-
 import type { IntervalLimitUnit } from "../intervalLimitSchema";
+import { toPeriodLabel } from "./zonedPeriod";
 
 function _getPeriodStartDatesBetween(
   dateFrom: Dayjs,
@@ -10,13 +10,23 @@ function _getPeriodStartDatesBetween(
   period: IntervalLimitUnit,
   timeZone?: string
 ): Dayjs[] {
-  const dates = [];
-  let startDate = timeZone ? dayjs(dateFrom).tz(timeZone).startOf(period) : dayjs(dateFrom).startOf(period);
-  const endDate = timeZone ? dayjs(dateTo).tz(timeZone).endOf(period) : dayjs(dateTo).endOf(period);
+  if (!timeZone) {
+    const dates: Dayjs[] = [];
+    let startDate = dayjs(dateFrom).startOf(period);
+    const endDate = dayjs(dateTo).endOf(period);
+    while (startDate.isBefore(endDate)) {
+      dates.push(startDate);
+      startDate = startDate.add(1, period);
+    }
+    return dates;
+  }
 
-  while (startDate.isBefore(endDate)) {
-    dates.push(startDate);
-    startDate = startDate.add(1, period);
+  const dates: Dayjs[] = [];
+  let label = toPeriodLabel(dateFrom, period, timeZone);
+  const lastLabel = toPeriodLabel(dateTo, period, timeZone);
+  while (label <= lastLabel) {
+    dates.push(dayjs.tz(label, timeZone));
+    label = dayjs.utc(label).add(1, period).format("YYYY-MM-DD");
   }
   return dates;
 }
