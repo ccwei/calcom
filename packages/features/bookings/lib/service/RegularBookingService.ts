@@ -1298,13 +1298,15 @@ async function handler(
   const tOrganizer = await getTranslation(organizerUser?.locale ?? "en", "common");
   let allCredentials = await getAllCredentialsIncludeServiceAccountKey(organizerUser, eventType);
 
-  // If the Organizer himself is rescheduling, the booker should be sent the communication in his timezone and locale.
-  const attendeeInfoOnReschedule =
-    userReschedulingIsOwner && originalRescheduledBooking
-      ? originalRescheduledBooking.attendees.find((attendee) => attendee.email === bookerEmail)
-      : null;
+  // The reschedule form language is whoever is looking at the page. The guest email
+  // stays in the locale saved on the original booking, so a host rescheduling from
+  // another language does not change it.
+  const originalBookerOnReschedule = originalRescheduledBooking?.attendees.find(
+    (attendee) => attendee.email === bookerEmail
+  );
+  const attendeeInfoOnReschedule = userReschedulingIsOwner ? originalBookerOnReschedule : null;
 
-  const attendeeLanguage = attendeeInfoOnReschedule ? attendeeInfoOnReschedule.locale : language;
+  const attendeeLanguage = originalBookerOnReschedule?.locale || language;
   const attendeeTimezone = attendeeInfoOnReschedule ? attendeeInfoOnReschedule.timeZone : reqBody.timeZone;
 
   const tAttendees = await getTranslation(attendeeLanguage ?? "en", "common");
