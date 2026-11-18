@@ -37,6 +37,11 @@ export type CalendarSubscriptionEvent = {
   provider: CalendarSubscriptionProvider;
   syncToken: string | null;
   items: CalendarSubscriptionEventItem[];
+  /**
+   * The previous sync cursor was rejected by the provider. `items` is a full snapshot for the
+   * sync window, and the local cache must be rebuilt from it before the new cursor is stored.
+   */
+  syncTokenReset?: boolean;
 };
 
 export type CalendarCredential = CredentialForCalendarServiceWithEmail;

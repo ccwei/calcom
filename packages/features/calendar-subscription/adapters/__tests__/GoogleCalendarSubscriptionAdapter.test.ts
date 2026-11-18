@@ -1,11 +1,10 @@
 import "../__mocks__/CalendarAuth";
 
-import { beforeEach, describe, expect, test, vi } from "vitest";
-
+import process from "node:process";
 import dayjs from "@calcom/dayjs";
 import type { SelectedCalendar } from "@calcom/prisma/client";
 import type { CredentialForCalendarServiceWithEmail } from "@calcom/types/Credential";
-
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { GoogleCalendarSubscriptionAdapter } from "../GoogleCalendarSubscription.adapter";
 
 const addMonthsFromNow = (months: number) => {
@@ -384,6 +383,72 @@ describe("GoogleCalendarSubscriptionAdapter", () => {
       });
 
       expect(result.syncToken).toBe("initial-sync-token");
+    });
+
+    test("should replace an expired sync token with a full sync", async () => {
+      const expiredSyncToken = Object.assign(
+        new Error("Sync token is no longer valid, a full sync is required."),
+        {
+          code: 410,
+          response: {
+            status: 410,
+            data: {
+              error: {
+                code: 410,
+                message: "Sync token is no longer valid, a full sync is required.",
+                errors: [
+                  {
+                    reason: "fullSyncRequired",
+                    message: "Sync token is no longer valid, a full sync is required.",
+                  },
+                ],
+              },
+            },
+          },
+        }
+      );
+
+      mockClient.events.list.mockRejectedValueOnce(expiredSyncToken).mockResolvedValueOnce({
+        data: {
+          nextSyncToken: "fresh-sync-token",
+          items: [
+            {
+              id: "event-1",
+              ...commonEventData,
+              start: { dateTime: oneWeekFromNow.toISOString(), timeZone: "UTC" },
+              end: { dateTime: eventEndTime.toISOString() },
+            },
+          ],
+        },
+      });
+
+      const result = await adapter.fetchEvents(mockSelectedCalendar, mockCredential);
+
+      expect(mockClient.events.list).toHaveBeenNthCalledWith(1, {
+        calendarId: "test@example.com",
+        pageToken: undefined,
+        singleEvents: true,
+        syncToken: "test-sync-token",
+      });
+      expect(mockClient.events.list).toHaveBeenNthCalledWith(2, {
+        calendarId: "test@example.com",
+        pageToken: undefined,
+        singleEvents: true,
+        timeMin: today.startOf("day").toISOString(),
+        timeMax: addMonthsFromNow(3).endOf("day").toISOString(),
+      });
+      expect(result.syncToken).toBe("fresh-sync-token");
+      expect(result.syncTokenReset).toBe(true);
+      expect(result.items).toHaveLength(1);
+    });
+
+    test("should keep a non-expiry list failure failed", async () => {
+      mockClient.events.list.mockRejectedValueOnce(new Error("Google Calendar unavailable"));
+
+      await expect(adapter.fetchEvents(mockSelectedCalendar, mockCredential)).rejects.toThrow(
+        "Google Calendar unavailable"
+      );
+      expect(mockClient.events.list).toHaveBeenCalledTimes(1);
     });
 
     test("should handle all-day events", async () => {

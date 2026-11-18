@@ -406,6 +406,79 @@ describe("CalendarSubscriptionService", () => {
 
       expect(mockCalendarCacheEventService.handleEvents).not.toHaveBeenCalled();
       expect(mockCalendarSyncService.handleEvents).not.toHaveBeenCalled();
+      expect(mockSelectedCalendarRepository.updateSyncStatus).toHaveBeenCalledWith(mockSelectedCalendar.id, {
+        syncToken: "new-sync-token",
+        syncedAt: expect.any(Date),
+        syncErrorAt: null,
+        syncErrorCount: 0,
+      });
+    });
+
+    test("should rebuild the cache from a full sync and store the replacement cursor after events are applied", async () => {
+      mockFeatureRepository.checkIfFeatureIsEnabledGlobally
+        .mockResolvedValueOnce(true)
+        .mockResolvedValueOnce(true);
+      mockAdapter.fetchEvents.mockResolvedValue({
+        ...mockEvents,
+        syncToken: "fresh-sync-token",
+        syncTokenReset: true,
+      });
+
+      await service.processEvents(mockSelectedCalendar);
+
+      expect(mockCalendarCacheEventService.cleanupCache).toHaveBeenCalledWith(mockSelectedCalendar);
+      expect(mockCalendarCacheEventService.handleEvents).toHaveBeenCalledWith(
+        mockSelectedCalendar,
+        mockEvents.items
+      );
+      expect(mockCalendarSyncService.handleEvents).toHaveBeenCalledWith(
+        mockSelectedCalendar,
+        mockEvents.items
+      );
+      const syncStatusCalls = vi.mocked(mockSelectedCalendarRepository.updateSyncStatus).mock;
+      expect(syncStatusCalls.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(mockCalendarCacheEventService.cleanupCache).mock.invocationCallOrder[0]
+      );
+      expect(vi.mocked(mockCalendarCacheEventService.cleanupCache).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(mockCalendarCacheEventService.handleEvents).mock.invocationCallOrder[0]
+      );
+      expect(vi.mocked(mockCalendarSyncService.handleEvents).mock.invocationCallOrder[0]).toBeLessThan(
+        syncStatusCalls.invocationCallOrder[1]
+      );
+      expect(mockSelectedCalendarRepository.updateSyncStatus).toHaveBeenNthCalledWith(
+        1,
+        mockSelectedCalendar.id,
+        { syncToken: null }
+      );
+      expect(mockSelectedCalendarRepository.updateSyncStatus).toHaveBeenNthCalledWith(
+        2,
+        mockSelectedCalendar.id,
+        {
+          syncToken: "fresh-sync-token",
+          syncedAt: expect.any(Date),
+          syncErrorAt: null,
+          syncErrorCount: 0,
+        }
+      );
+    });
+
+    test("should clear the rejected sync token when applying the full sync fails", async () => {
+      mockFeatureRepository.checkIfFeatureIsEnabledGlobally
+        .mockResolvedValueOnce(true)
+        .mockResolvedValueOnce(true);
+      mockAdapter.fetchEvents.mockResolvedValue({
+        ...mockEvents,
+        syncToken: "fresh-sync-token",
+        syncTokenReset: true,
+      });
+      vi.mocked(mockCalendarSyncService.handleEvents).mockRejectedValue(new Error("reschedule failed"));
+
+      await expect(service.processEvents(mockSelectedCalendar)).rejects.toThrow("reschedule failed");
+
+      expect(mockSelectedCalendarRepository.updateSyncStatus).toHaveBeenCalledTimes(1);
+      expect(mockSelectedCalendarRepository.updateSyncStatus).toHaveBeenCalledWith(mockSelectedCalendar.id, {
+        syncToken: null,
+      });
     });
 
     test("should return early when selected calendar has no credentialId or delegationCredentialId", async () => {

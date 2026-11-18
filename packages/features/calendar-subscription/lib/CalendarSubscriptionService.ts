@@ -279,7 +279,28 @@ export class CalendarSubscriptionService {
       throw err;
     }
 
-    if (!events?.items?.length) {
+    if (!events) {
+      return result;
+    }
+
+    // A rejected cursor means the cached window is no longer a valid delta base. Google omits
+    // deletions from a full sync, so the previous cache has to be replaced by the snapshot.
+    // Clear the cursor first: availability reads the cache only while syncToken is set, and an
+    // empty cache with the old cursor still set would show the host as free.
+    if (events.syncTokenReset) {
+      await this.deps.selectedCalendarRepository.updateSyncStatus(selectedCalendar.id, {
+        syncToken: null,
+      });
+      if (cacheEnabled) {
+        log.info("Sync token was rejected, rebuilding calendar cache", {
+          channelId: selectedCalendar.channelId,
+        });
+        await this.deps.calendarCacheEventService.cleanupCache(selectedCalendar);
+      }
+    }
+
+    if (!events.items?.length) {
+      await this.persistSyncCursor(selectedCalendar, events);
       log.debug("No events fetched", { channelId: selectedCalendar.channelId });
       return result;
     }
@@ -289,7 +310,7 @@ export class CalendarSubscriptionService {
     metrics.distribution("calendar.subscription.events.fetched", events.items.length, {
       attributes: {
         provider: selectedCalendar.integration,
-        incremental: !!selectedCalendar.syncToken,
+        incremental: !!selectedCalendar.syncToken && !events.syncTokenReset,
       },
     });
 
@@ -304,13 +325,6 @@ export class CalendarSubscriptionService {
         attributes: { provider: selectedCalendar.integration },
       });
     }
-
-    await this.deps.selectedCalendarRepository.updateSyncStatus(selectedCalendar.id, {
-      syncToken: events.syncToken || selectedCalendar.syncToken,
-      syncedAt: new Date(),
-      syncErrorAt: null,
-      syncErrorCount: 0,
-    });
 
     if (cacheEnabled) {
       log.debug("Caching events", { count: events.items.length });
@@ -332,6 +346,11 @@ export class CalendarSubscriptionService {
       });
     }
 
+    // Store the replacement cursor only after events are applied. A failure above leaves the
+    // webhook failed so Google retries. A reset already cleared the rejected cursor, so that retry
+    // is a full sync and availability keeps reading Google until this write succeeds.
+    await this.persistSyncCursor(selectedCalendar, events);
+
     metrics.distribution("calendar.subscription.processEvents.duration_ms", performance.now() - startTime, {
       attributes: {
         provider: selectedCalendar.integration,
@@ -341,6 +360,25 @@ export class CalendarSubscriptionService {
     });
 
     return result;
+  }
+
+  private async persistSyncCursor(
+    selectedCalendar: SelectedCalendar,
+    events: CalendarSubscriptionEvent
+  ): Promise<void> {
+    // After a reset, never write the rejected cursor back. A missing replacement stays null so
+    // the next attempt is a full sync instead of another 410.
+    let syncToken = events.syncToken || selectedCalendar.syncToken;
+    if (events.syncTokenReset) {
+      syncToken = events.syncToken;
+    }
+
+    await this.deps.selectedCalendarRepository.updateSyncStatus(selectedCalendar.id, {
+      syncToken,
+      syncedAt: new Date(),
+      syncErrorAt: null,
+      syncErrorCount: 0,
+    });
   }
 
   /**

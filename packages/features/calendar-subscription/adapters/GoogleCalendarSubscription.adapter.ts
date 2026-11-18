@@ -1,21 +1,53 @@
-import type { calendar_v3 } from "@googleapis/calendar";
-import { v4 as uuid } from "uuid";
-
+import process from "node:process";
 import { CalendarAuth } from "@calcom/app-store/googlecalendar/lib/CalendarAuth";
 import dayjs from "@calcom/dayjs";
 import { CalendarCacheEventService } from "@calcom/features/calendar-subscription/lib/cache/CalendarCacheEventService";
 import logger from "@calcom/lib/logger";
 import type { SelectedCalendar } from "@calcom/prisma/client";
-
+import type { calendar_v3 } from "@googleapis/calendar";
+import { v4 as uuid } from "uuid";
 import type {
-  ICalendarSubscriptionPort,
-  CalendarSubscriptionResult,
+  CalendarCredential,
   CalendarSubscriptionEvent,
   CalendarSubscriptionEventItem,
-  CalendarCredential,
+  CalendarSubscriptionResult,
+  ICalendarSubscriptionPort,
 } from "../lib/CalendarSubscriptionPort.interface";
 
 const log = logger.getSubLogger({ prefix: ["GoogleCalendarSubscriptionAdapter"] });
+
+/**
+ * Google returns 410 fullSyncRequired when the stored sync token can no longer be used.
+ * https://developers.google.com/calendar/api/guides/sync#full_sync_required_by_server
+ */
+function isExpiredSyncTokenError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+
+  const candidate = error as {
+    code?: number;
+    status?: number;
+    response?: {
+      status?: number;
+      data?: {
+        error?: {
+          code?: number;
+          errors?: { reason?: string }[];
+        };
+      };
+    };
+  };
+
+  const status =
+    candidate.response?.status ?? candidate.status ?? candidate.code ?? candidate.response?.data?.error?.code;
+
+  if (status === 410) {
+    return true;
+  }
+
+  return candidate.response?.data?.error?.errors?.some((item) => item.reason === "fullSyncRequired") === true;
+}
 
 /**
  * Google Calendar Subscription Adapter
@@ -107,9 +139,35 @@ export class GoogleCalendarSubscriptionAdapter implements ICalendarSubscriptionP
   ): Promise<CalendarSubscriptionEvent> {
     log.info("Attempt to fetch events from Google Calendar", { externalId: selectedCalendar.externalId });
     const client = await this.getClient(credential);
+    const syncToken = selectedCalendar.syncToken || undefined;
 
-    let syncToken = selectedCalendar.syncToken || undefined;
-    let pageToken;
+    try {
+      return await this.listEvents(client, selectedCalendar, syncToken);
+    } catch (error) {
+      // Google expires sync tokens (410 fullSyncRequired). Keep the failure if this was already a full
+      // sync so the webhook stays failed and Google retries, instead of looping on the same 410.
+      if (!syncToken || !isExpiredSyncTokenError(error)) {
+        throw error;
+      }
+
+      log.warn("Google sync token expired, running a full sync", {
+        externalId: selectedCalendar.externalId,
+      });
+      const fullSync = await this.listEvents(client, selectedCalendar, undefined);
+      return {
+        ...fullSync,
+        syncTokenReset: true,
+      };
+    }
+  }
+
+  private async listEvents(
+    client: calendar_v3.Calendar,
+    selectedCalendar: SelectedCalendar,
+    syncToken: string | undefined
+  ): Promise<CalendarSubscriptionEvent> {
+    let pageToken: string | null | undefined;
+    let nextSyncToken = syncToken;
 
     const params: calendar_v3.Params$Resource$Events$List = {
       calendarId: selectedCalendar.externalId,
@@ -119,15 +177,11 @@ export class GoogleCalendarSubscriptionAdapter implements ICalendarSubscriptionP
 
     if (!syncToken) {
       const now = dayjs().startOf("day");
-      // first sync or unsync (3 months)
+      // first sync or expired cursor (3 months)
       const monthsAhead = now.add(CalendarCacheEventService.MONTHS_AHEAD, "month").endOf("day");
-
-      const timeMinISO = now.toISOString();
-      const timeMaxISO = monthsAhead.toISOString();
-      params.timeMin = timeMinISO;
-      params.timeMax = timeMaxISO;
+      params.timeMin = now.toISOString();
+      params.timeMax = monthsAhead.toISOString();
     } else {
-      // incremental sync
       params.syncToken = syncToken;
     }
 
@@ -135,7 +189,7 @@ export class GoogleCalendarSubscriptionAdapter implements ICalendarSubscriptionP
     do {
       const { data }: { data: calendar_v3.Schema$Events } = await client.events.list(params);
 
-      syncToken = data.nextSyncToken || syncToken;
+      nextSyncToken = data.nextSyncToken || nextSyncToken;
       pageToken = data.nextPageToken ?? null;
       if (pageToken) {
         params.pageToken = pageToken;
@@ -146,7 +200,7 @@ export class GoogleCalendarSubscriptionAdapter implements ICalendarSubscriptionP
 
     return {
       provider: "google_calendar",
-      syncToken: syncToken || null,
+      syncToken: nextSyncToken || null,
       items: this.parseEvents(events),
     };
   }
