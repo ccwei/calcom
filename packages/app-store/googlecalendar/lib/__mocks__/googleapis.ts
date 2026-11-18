@@ -1,6 +1,7 @@
 import { vi } from "vitest";
 
 const setCredentialsMock = vi.fn();
+const refreshTokenMock = vi.fn();
 const freebusyQueryMock = vi.fn();
 const calendarListMock = vi.fn();
 const calendarsGetMock = vi.fn();
@@ -32,7 +33,10 @@ const calendarMockImplementation = {
 
 const calendarMock = {
   calendar_v3: {
-    Calendar: vi.fn().mockImplementation(function() { return calendarMockImplementation; }),
+    // Must stay a function so `new calendar_v3.Calendar()` works.
+    Calendar: vi.fn().mockImplementation(function calendarConstructor() {
+      return calendarMockImplementation;
+    }),
   },
 };
 const adminMock = {
@@ -81,6 +85,14 @@ export const MOCK_OAUTH2_TOKEN = {
   expiry_date: 1625097600000,
 };
 
+refreshTokenMock.mockResolvedValue({
+  res: {
+    data: MOCK_OAUTH2_TOKEN,
+    status: 200,
+    statusText: "OK",
+  },
+});
+
 let lastCreatedJWT: MockJWT | null = null;
 let lastCreatedOAuth2Client: MockOAuth2Client | null = null;
 
@@ -88,23 +100,17 @@ vi.mock("googleapis-common", async () => {
   const actual = await vi.importActual("googleapis-common");
   return {
     ...actual,
-    OAuth2Client: vi.fn().mockImplementation(function(...args: [string, string, string]) {
+    OAuth2Client: vi.fn().mockImplementation(function oauthConstructor(...args: [string, string, string]) {
       lastCreatedOAuth2Client = {
         type: "oauth2",
         args,
         setCredentials: setCredentialsMock,
         isTokenExpiring: vi.fn().mockReturnValue(true),
-        refreshToken: vi.fn().mockResolvedValue({
-          res: {
-            data: MOCK_OAUTH2_TOKEN,
-            status: 200,
-            statusText: "OK",
-          },
-        }),
+        refreshToken: refreshTokenMock,
       };
       return lastCreatedOAuth2Client;
     }),
-    JWT: vi.fn().mockImplementation(function(config: MockJWT["config"]) {
+    JWT: vi.fn().mockImplementation(function jwtConstructor(config: MockJWT["config"]) {
       lastCreatedJWT = {
         type: "jwt",
         config,
@@ -128,6 +134,7 @@ export {
   calendarMock,
   adminMock,
   setCredentialsMock,
+  refreshTokenMock,
   freebusyQueryMock,
   calendarListMock,
   getLastCreatedJWT,

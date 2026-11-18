@@ -2,29 +2,29 @@ import prismock from "@calcom/testing/lib/__mocks__/prisma";
 import "../__mocks__/features.repository";
 import "../__mocks__/getGoogleAppKeys";
 import {
-  setCredentialsMock,
+  adminMock,
   calendarListMock,
+  calendarMock,
   getLastCreatedJWT,
   getLastCreatedOAuth2Client,
-  setLastCreatedJWT,
-  setLastCreatedOAuth2Client,
-  calendarMock,
-  adminMock,
   MOCK_JWT_TOKEN,
   MOCK_OAUTH2_TOKEN,
+  refreshTokenMock,
+  setCredentialsMock,
+  setLastCreatedJWT,
+  setLastCreatedOAuth2Client,
 } from "../__mocks__/googleapis";
-
-import { expect, test, beforeEach, vi, describe } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import "vitest-fetch-mock";
 
+import { ErrorCode } from "@calcom/lib/errorCodes";
 import type { CredentialForCalendarServiceWithEmail } from "@calcom/types/Credential";
-
 import BuildCalendarService from "../CalendarService";
 import {
-  createMockJWTInstance,
-  createInMemoryDelegationCredentialForCalendarService as createInMemoryDelegationCredentialForBuildCalendarService,
-  defaultDelegatedCredential,
   createCredentialForCalendarService,
+  createInMemoryDelegationCredentialForCalendarService as createInMemoryDelegationCredentialForBuildCalendarService,
+  createMockJWTInstance,
+  defaultDelegatedCredential,
 } from "./utils";
 
 function expectJWTInstanceToBeCreated() {
@@ -47,6 +47,14 @@ function mockSuccessfulCalendarListFetch() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  refreshTokenMock.mockReset();
+  refreshTokenMock.mockResolvedValue({
+    res: {
+      data: MOCK_OAUTH2_TOKEN,
+      status: 200,
+      statusText: "OK",
+    },
+  });
   setCredentialsMock.mockClear();
   calendarMock.calendar_v3.Calendar.mockClear();
   adminMock.admin_directory_v1.Admin.mockClear();
@@ -193,15 +201,42 @@ describe("GoogleCalendarService credential handling", () => {
 
       expectOAuth2InstanceToBeCreated();
 
-      expect(calendarMock.calendar_v3.Calendar).toHaveBeenCalledWith({
-        auth: getLastCreatedOAuth2Client(),
-      });
+      expect(calendarMock.calendar_v3.Calendar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          auth: getLastCreatedOAuth2Client(),
+        })
+      );
       await expectCredentialsInDb([
         expect.objectContaining({
           id: regularCredential.id,
           key: MOCK_OAUTH2_TOKEN,
         }),
       ]);
+    });
+
+    test("marks the credential invalid when Google refresh returns invalid_grant", async () => {
+      const regularCredential = await createCredentialForCalendarService();
+      refreshTokenMock.mockRejectedValueOnce(new Error("invalid_grant"));
+      const calendarService = BuildCalendarService(regularCredential);
+
+      await expect(calendarService.listCalendars()).rejects.toMatchObject({
+        message: "invalid_grant",
+        code: ErrorCode.CalendarCredentialInvalid,
+      });
+
+      const stored = await prismock.credential.findUnique({ where: { id: regularCredential.id } });
+      expect(stored?.invalid).toBe(true);
+    });
+
+    test("keeps the credential valid when Google refresh fails for another reason", async () => {
+      const regularCredential = await createCredentialForCalendarService();
+      refreshTokenMock.mockRejectedValueOnce(new Error("socket hang up"));
+      const calendarService = BuildCalendarService(regularCredential);
+
+      await expect(calendarService.listCalendars()).rejects.toThrow("socket hang up");
+
+      const stored = await prismock.credential.findUnique({ where: { id: regularCredential.id } });
+      expect(stored?.invalid).toBe(false);
     });
   });
 

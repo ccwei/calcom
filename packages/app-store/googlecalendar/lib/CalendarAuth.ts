@@ -10,6 +10,8 @@ import {
   CREDENTIAL_SYNC_SECRET,
   CREDENTIAL_SYNC_SECRET_HEADER_NAME,
 } from "@calcom/lib/constants";
+import { ErrorCode } from "@calcom/lib/errorCodes";
+import { ErrorWithCode } from "@calcom/lib/errors";
 import logger from "@calcom/lib/logger";
 import type { Prisma } from "@calcom/prisma/client";
 import type { CredentialForCalendarServiceWithEmail } from "@calcom/types/Credential";
@@ -21,6 +23,7 @@ import { oAuthManagerHelper } from "../../_utils/oauth/oAuthManagerHelper";
 import { OAuth2UniversalSchema } from "../../_utils/oauth/universalSchema";
 import { metadata } from "../_metadata";
 import { getGoogleAppKeys } from "./getGoogleAppKeys";
+import { isGoogleInvalidGrantBody, isGoogleInvalidGrantError } from "./invalidGrant";
 
 type DelegatedTo = NonNullable<CredentialForCalendarServiceWithEmail["delegatedTo"]>;
 const log = logger.getSubLogger({ prefix: ["app-store/googlecalendar/lib/CalendarAuth"] });
@@ -218,7 +221,8 @@ export class CalendarAuth {
         // TODO: Confirm that if this logic should go to isAccessTokenUnusable
         if (!response.ok || (response.status < 200 && response.status >= 300)) {
           const responseBody = await response.json();
-          if (responseBody.error === "invalid_grant") {
+          // Thrown refreshes arrive as myFetchError. A normal token response uses error.
+          if (isGoogleInvalidGrantBody(responseBody)) {
             return {
               reason: "invalid_grant",
             };
@@ -285,14 +289,22 @@ export class CalendarAuth {
     let googleAuthClient;
     const authStrategy = this.getAuthStrategy();
 
-    if (authStrategy === "jwt" && this.credential.delegatedTo) {
-      googleAuthClient = await this.authMechanism.getJwtClientWithRefreshedToken({
-        delegatedTo: this.credential.delegatedTo,
-      });
-    }
+    try {
+      if (authStrategy === "jwt" && this.credential.delegatedTo) {
+        googleAuthClient = await this.authMechanism.getJwtClientWithRefreshedToken({
+          delegatedTo: this.credential.delegatedTo,
+        });
+      }
 
-    if (!googleAuthClient) {
-      googleAuthClient = await this.authMechanism.getOAuthClientWithRefreshedToken();
+      if (!googleAuthClient) {
+        googleAuthClient = await this.authMechanism.getOAuthClientWithRefreshedToken();
+      }
+    } catch (error) {
+      // OAuthManager already marked the credential invalid, then rethrew the raw Google message.
+      if (isGoogleInvalidGrantError(error)) {
+        throw new ErrorWithCode(ErrorCode.CalendarCredentialInvalid, "invalid_grant");
+      }
+      throw error;
     }
 
     if (!googleAuthClient) {

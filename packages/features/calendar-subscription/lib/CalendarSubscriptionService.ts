@@ -11,6 +11,8 @@ import type { CalendarCacheEventService } from "@calcom/features/calendar-subscr
 import type { CalendarSyncService } from "@calcom/features/calendar-subscription/lib/sync/CalendarSyncService";
 import type { IFeatureRepository } from "@calcom/features/flags/repositories/PrismaFeatureRepository";
 import type { ISelectedCalendarRepository } from "@calcom/features/selectedCalendar/repositories/SelectedCalendarRepository.interface";
+import { ErrorCode } from "@calcom/lib/errorCodes";
+import { ErrorWithCode } from "@calcom/lib/errors";
 import logger from "@calcom/lib/logger";
 import type { SelectedCalendar } from "@calcom/prisma/client";
 import { metrics } from "@sentry/nextjs";
@@ -189,6 +191,11 @@ export class CalendarSubscriptionService {
         attributes: { provider },
       });
     } catch (error) {
+      // The credential is already marked invalid. The route acknowledges this so Google stops retrying.
+      if (error instanceof ErrorWithCode && error.code === ErrorCode.CalendarCredentialInvalid) {
+        throw error;
+      }
+
       const durationMs = performance.now() - startTime;
 
       metrics.count("calendar.subscription.webhook.error", 1, {
@@ -262,6 +269,15 @@ export class CalendarSubscriptionService {
 
     const credential = await this.getCredential(selectedCalendar);
     if (!credential) {
+      return result;
+    }
+
+    // A revoked refresh token cannot stop the watch channel. Skip Google until the user reconnects.
+    if (credential.invalid) {
+      log.info("Skipping calendar sync because the credential is invalid", {
+        selectedCalendarId: selectedCalendar.id,
+        credentialId: credential.id,
+      });
       return result;
     }
 

@@ -1,7 +1,6 @@
-import { NextRequest } from "next/server";
-import { describe, test, expect, vi, beforeEach } from "vitest";
-
 import { CalendarSubscriptionService } from "@calcom/features/calendar-subscription/lib/CalendarSubscriptionService";
+import { NextRequest } from "next/server";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 vi.mock("next/server", () => ({
   NextRequest: class MockNextRequest {
@@ -236,6 +235,56 @@ describe("/api/webhooks/calendar-subscription/[provider]", () => {
       expect(response.status).toBe(500);
       const body = await response.json();
       expect(body.message).toBe("Webhook validation failed");
+    });
+
+    test("acknowledges an invalid calendar credential so the provider stops retrying", async () => {
+      const request = new NextRequest("http://localhost/api/webhooks/calendar-subscription/google_calendar", {
+        method: "POST",
+      });
+
+      const mockIsCacheEnabled = vi.fn().mockResolvedValue(true);
+      const mockIsSyncEnabled = vi.fn().mockResolvedValue(false);
+      const { ErrorCode } = await import("@calcom/lib/errorCodes");
+      const { ErrorWithCode } = await import("@calcom/lib/errors");
+      const mockProcessWebhook = vi
+        .fn()
+        .mockRejectedValue(new ErrorWithCode(ErrorCode.CalendarCredentialInvalid, "invalid_grant"));
+
+      mockCalendarSubscriptionService.prototype.isCacheEnabled = mockIsCacheEnabled;
+      mockCalendarSubscriptionService.prototype.isSyncEnabled = mockIsSyncEnabled;
+      mockCalendarSubscriptionService.prototype.processWebhook = mockProcessWebhook;
+
+      const { POST } = await import("../route");
+      const response = await POST(request, {
+        params: Promise.resolve({ provider: "google_calendar" }),
+      });
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.message).toBe("Calendar credential invalid");
+    });
+
+    test("keeps retrying when invalid_grant was not marked as an invalid credential", async () => {
+      const request = new NextRequest("http://localhost/api/webhooks/calendar-subscription/google_calendar", {
+        method: "POST",
+      });
+
+      const mockIsCacheEnabled = vi.fn().mockResolvedValue(true);
+      const mockIsSyncEnabled = vi.fn().mockResolvedValue(false);
+      const mockProcessWebhook = vi.fn().mockRejectedValue(new Error("invalid_grant"));
+
+      mockCalendarSubscriptionService.prototype.isCacheEnabled = mockIsCacheEnabled;
+      mockCalendarSubscriptionService.prototype.isSyncEnabled = mockIsSyncEnabled;
+      mockCalendarSubscriptionService.prototype.processWebhook = mockProcessWebhook;
+
+      const { POST } = await import("../route");
+      const response = await POST(request, {
+        params: Promise.resolve({ provider: "google_calendar" }),
+      });
+
+      expect(response.status).toBe(500);
+      const body = await response.json();
+      expect(body.message).toBe("invalid_grant");
     });
 
     test("should handle non-Error exceptions", async () => {

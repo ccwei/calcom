@@ -7,6 +7,8 @@ import { CalendarCacheEventService } from "@calcom/features/calendar-subscriptio
 import { CalendarSyncService } from "@calcom/features/calendar-subscription/lib/sync/CalendarSyncService";
 import { getFeatureRepository } from "@calcom/features/di/containers/FeatureRepository";
 import { SelectedCalendarRepository } from "@calcom/features/selectedCalendar/repositories/SelectedCalendarRepository";
+import { ErrorCode } from "@calcom/lib/errorCodes";
+import { ErrorWithCode } from "@calcom/lib/errors";
 import logger from "@calcom/lib/logger";
 import { prisma } from "@calcom/prisma";
 import { defaultResponderForAppDir } from "@calcom/web/app/api/defaultResponderForAppDir";
@@ -32,7 +34,8 @@ function extractAndValidateProviderFromParams(params: Params): CalendarSubscript
  * It processes the webhook based on the calendar provider specified in the URL.
  * If the provider is unsupported, it returns a 400 response.
  * If the webhook is processed successfully, it returns a 200 response.
- * In case of errors during processing, it returns a 500 response with the error message.
+ * A revoked calendar credential throws ErrorWithCode CalendarCredentialInvalid and is acknowledged with 200 so the provider stops retrying.
+ * Other errors return a 500 response with the error message.
  * @param {NextRequest} request - The incoming request object.
  * @param {Object} context - The context object containing route parameters.
  * @param {Promise<Params>} context.params - A promise that resolves to the route parameters.
@@ -77,7 +80,18 @@ async function postHandler(request: NextRequest, ctx: { params: Promise<Params> 
     await calendarSubscriptionService.processWebhook(providerFromParams, request);
     return NextResponse.json({ message: "Webhook processed" }, { status: 200 });
   } catch (error) {
-    log.error("Error processing webhook", { error });
+    // Credential.invalid is already set. Acknowledge so the provider does not retry a dead token.
+    if (error instanceof ErrorWithCode && error.code === ErrorCode.CalendarCredentialInvalid) {
+      log.warn("Calendar credential is invalid", {
+        provider: providerFromParams,
+        error: error.message,
+      });
+      return NextResponse.json({ message: "Calendar credential invalid" }, { status: 200 });
+    }
+
+    log.error("Error processing webhook", {
+      error: error instanceof Error ? error.message : error,
+    });
     const message = error instanceof Error ? error.message : "Unknown error";
     return NextResponse.json({ message }, { status: 500 });
   }

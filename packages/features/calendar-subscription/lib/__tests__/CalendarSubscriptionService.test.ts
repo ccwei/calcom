@@ -481,6 +481,24 @@ describe("CalendarSubscriptionService", () => {
       });
     });
 
+    test("should skip Google when the credential is already invalid", async () => {
+      const { getCredentialForSelectedCalendar } = await import("../__mocks__/delegationCredential");
+      getCredentialForSelectedCalendar.mockResolvedValue({
+        ...mockCredential,
+        invalid: true,
+      });
+
+      const result = await service.processEvents(mockSelectedCalendar);
+
+      expect(result).toEqual({
+        eventsFetched: 0,
+        eventsCached: 0,
+        eventsSynced: 0,
+      });
+      expect(mockAdapter.fetchEvents).not.toHaveBeenCalled();
+      expect(mockSelectedCalendarRepository.updateSyncStatus).not.toHaveBeenCalled();
+    });
+
     test("should return early when selected calendar has no credentialId or delegationCredentialId", async () => {
       const calendarWithoutCredential = {
         ...mockSelectedCalendar,
