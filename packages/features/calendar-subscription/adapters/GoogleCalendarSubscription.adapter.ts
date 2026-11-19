@@ -166,7 +166,7 @@ export class GoogleCalendarSubscriptionAdapter implements ICalendarSubscriptionP
     selectedCalendar: SelectedCalendar,
     syncToken: string | undefined
   ): Promise<CalendarSubscriptionEvent> {
-    let pageToken: string | null | undefined;
+    let pageToken: string | undefined;
     let nextSyncToken = syncToken;
 
     const params: calendar_v3.Params$Resource$Events$List = {
@@ -190,7 +190,7 @@ export class GoogleCalendarSubscriptionAdapter implements ICalendarSubscriptionP
       const { data }: { data: calendar_v3.Schema$Events } = await client.events.list(params);
 
       nextSyncToken = data.nextSyncToken || nextSyncToken;
-      pageToken = data.nextPageToken ?? null;
+      pageToken = data.nextPageToken ?? undefined;
       if (pageToken) {
         params.pageToken = pageToken;
       }
